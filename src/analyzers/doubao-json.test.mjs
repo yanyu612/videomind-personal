@@ -92,6 +92,19 @@ describe('Doubao JSON parser — tryParseJSON', () => {
     assert.equal(analyzer.tryParseJSON(text), null);
   });
 
+  it('repairs a completed Doubao answer with a missing array bracket', () => {
+    const text = '{"access_status":"部分读取","title":"测试视频","summary":"摘要","retention_reason":["值得保留","to_verify":["待核验"],"auto_tags":["#测试"]}';
+    const result = analyzer.tryParseJSON(text);
+    assert.equal(result.title, '测试视频');
+    assert.deepEqual(result.to_verify, ['待核验']);
+    assert.deepEqual(result.auto_tags, ['#测试']);
+  });
+
+  it('does not repair an unfinished streaming answer before auto_tags arrives', () => {
+    const text = '{"access_status":"部分读取","title":"还在生成","summary":"未完成"';
+    assert.equal(analyzer.tryParseJSON(text), null);
+  });
+
   it('returns null for empty string', () => {
     assert.equal(analyzer.tryParseJSON(''), null);
     assert.equal(analyzer.tryParseJSON(null), null);

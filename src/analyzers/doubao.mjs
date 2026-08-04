@@ -17,6 +17,7 @@ import { NotLoggedInError } from '../core/analyzer-errors.mjs';
 import { uploadThumbToEditor } from '../core/thumb-upload.mjs';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { jsonrepair } from 'jsonrepair';
 
 export function responseAfterLastMatchingPrompt(messages, videoUrl) {
   const id = String(videoUrl || '').match(/\d{10,}/)?.[0] || String(videoUrl || '');
@@ -57,14 +58,15 @@ function buildKnowledgeCardPrompt(video, options = {}) {
 真实性要求：必须先尝试访问原链接。不得仅凭标题猜测或补写事实。若无法读取，将 access_status 写为“无法读取”，transcript 写“未能读取视频”，不确定字段留空。
 
 整理要求：
-1. content_type 从“菜谱、运动、AI工具、学习、家居清洁、健康、美妆、理财、旅行、娱乐、观点鸡汤、其他”中选择。
-2. 生成一级分类、二级分类和 2～5 个主题词，作为 Obsidian 双链节点。
+1. content_type 从“菜谱、运动、AI工具、学习、家居清洁、健康、美妆、摄影修图、理财、旅行、娱乐、观点鸡汤、其他”中选择。照片液化、瘦脸、调色和后期教程属于“摄影修图”，不是“美妆”。
+2. 生成一级分类、二级分类和 2～5 个主题词，作为 Obsidian 双链节点。娱乐内容优先使用稳定大类：美剧、英剧、韩剧等统一归“电视剧”；电子游戏统一归“游戏”，不要把具体剧名、游戏名或单条视频标题当分类。
 3. 写一句话总结、3～6 个核心要点、适用与不适用场景、可执行动作、保留理由和待验证内容。
 4. category_details 仅使用相应类型字段：
    菜谱：dish、ingredients、steps、time_heat、substitutions、pitfalls；
    运动：goal、exercises、dosage、form_cues、contraindications、regression_progression；
    AI工具：tool、problem_solved、steps、cost_requirements、limitations；
    家居清洁：cleaning_target、materials、steps、safety、pitfalls；
+   摄影修图：tool、editing_target、steps、parameters、pitfalls；
    观点鸡汤：core_claim、reasoning、useful_part、emotional_rhetoric、counterexamples；
    其他：scene、method、steps、boundaries。
 5. transcript 尽量记录完整口播；听不清标“（听不清）”，无口播写“无旁白”。
@@ -81,6 +83,47 @@ export class DoubaoAnalyzer extends BaseAnalyzer {
     this.page = null;
     this.conversationStatePath = resolve('data', 'doubao-conversation.json');
     this.unreadableRetryUrls = new Set();
+  }
+
+  /**
+   * Doubao occasionally finishes a response with a tiny JSON syntax mistake
+   * (for example a missing closing bracket before the next schema field).
+   * Repair only answers that clearly reached our final `auto_tags` field, so
+   * an incomplete streaming response is never accepted early.
+   */
+  tryParseJSON(text) {
+    const strict = super.tryParseJSON(text);
+    if (strict) return strict;
+    if (!text || typeof text !== 'string' || !text.includes('"auto_tags"')) return null;
+
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    try {
+      let candidate = text.slice(start, end + 1);
+      // jsonrepair can keep later schema keys inside an accidentally unclosed
+      // array. Close those flat schema arrays before the next known top-level
+      // key so fields such as to_verify/auto_tags are preserved, not swallowed.
+      const arrayBoundaries = [
+        ['evidence', 'title'],
+        ['category_secondary', 'summary'],
+        ['key_points', 'suitable_for'],
+        ['action_items', 'retention_reason'],
+        ['retention_reason', 'to_verify'],
+        ['to_verify', 'topics'],
+        ['topics', 'knowledge_points'],
+        ['knowledge_points', 'related_search_terms'],
+        ['related_search_terms', 'category_details'],
+      ];
+      for (const [arrayKey, nextKey] of arrayBoundaries) {
+        const missingBracket = new RegExp(`("${arrayKey}"\\s*:\\s*\\[[^\\]]*?)(\\s*,\\s*"${nextKey}"\\s*:)`);
+        candidate = candidate.replace(missingBracket, '$1]$2');
+      }
+      const repaired = JSON.parse(jsonrepair(candidate));
+      return repaired && typeof repaired === 'object' ? repaired : null;
+    } catch {
+      return null;
+    }
   }
 
   _savedConversationUrl() {

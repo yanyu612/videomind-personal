@@ -2,10 +2,13 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { canonicalizeVideoUrl } from '../src/core/video-url.mjs';
+import { categoryHierarchy } from '../src/core/category-hierarchy.mjs';
+import { DoubaoAnalyzer } from '../src/analyzers/doubao.mjs';
 
 const input = resolve(process.argv[2] || 'data/template-trial-all-results.json');
 const vault = resolve(process.argv[3] || 'F:\\jiyi\\闻叙的记忆小屋\\抖音收藏知识库');
 const incomingRows = JSON.parse(readFileSync(input, 'utf8'));
+const responseParser = new DoubaoAnalyzer(null);
 const ledgerDir = join(vault, '系统', '视频ID索引');
 const ledgerJson = join(ledgerDir, '已收藏视频数据.json');
 const ledgerMd = join(ledgerDir, '已收藏视频ID.md');
@@ -25,6 +28,8 @@ for (const row of [...savedRows, ...incomingRows]) {
 const rows = [...mergedRows.values()];
 
 function extractObject(text) {
+  const parsed = responseParser.tryParseJSON(text);
+  if (parsed) return parsed;
   const start = text.indexOf('{');
   if (start < 0) return {};
   let depth = 0, quoted = false, escaped = false;
@@ -55,21 +60,6 @@ function bullets(items) {
   return (Array.isArray(items) ? items : [items]).map(x => `- ${x}`).join('\n');
 }
 
-function hierarchy(data) {
-  if (data.content_type === '家居清洁') return ['生活', '家庭管理', '清洁'];
-  if (data.content_type === '菜谱') return ['生活', '烹饪', data.category_secondary || '家常菜'];
-  if (data.content_type === '运动') return ['生活', '运动健康', data.category_secondary || '日常训练'];
-  if (data.content_type === '健康') return ['生活', '健康管理', data.category_secondary || '健康知识'];
-  if (data.content_type === '美妆') return ['生活', '个人护理', data.category_secondary || '美妆护肤'];
-  if (data.content_type === '旅行') return ['生活', '旅行', data.category_secondary || '旅行攻略'];
-  if (data.content_type === '娱乐') return ['生活', '休闲娱乐', data.category_secondary || '娱乐内容'];
-  if (data.content_type === 'AI工具' || data.content_type === 'AI 工具') return ['工作', 'AI工具', data.category_secondary?.includes('写作') ? 'AI写作' : (data.category_secondary || '效率工具')];
-  if (data.content_type === '理财') return ['工作', '理财与资产', data.category_secondary || '理财知识'];
-  if (data.content_type === '学习') return ['学习', '学习方法', data.category_secondary || '知识整理'];
-  if (data.content_type === '观点鸡汤') return ['学习', '认知思维', '创业观点'];
-  return [data.category_primary || '其他', data.category_secondary || data.content_type || '未分类', '综合'];
-}
-
 function detailBlock(data) {
   const d = data.category_details || {};
   if (data.content_type === '家居清洁') return `## 清洁方法\n\n**清洁对象：** ${d.cleaning_target || '未提取'}\n\n### 工具与材料\n\n${bullets(d.materials)}\n\n### 操作步骤\n\n${bullets(d.steps)}\n\n> [!warning] 安全提醒\n> ${bullets(d.safety).replace(/^- /gm, '')}\n\n### 容易翻车\n\n${bullets(d.pitfalls)}`;
@@ -82,7 +72,7 @@ function detailBlock(data) {
 
 const cards = rows.map(row => {
   const data = extractObject(row.analysis || '');
-  const tree = hierarchy(data).map(safe);
+  const tree = categoryHierarchy(data, row).map(safe);
   const title = safe(data.title || row.title);
   return { row, data, tree, title };
 });
