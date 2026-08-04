@@ -20,6 +20,7 @@ export class WebAgent {
     this.cdpPort = options.cdpPort || 9222;
     this.browser = null;
     this.context = null;
+    this.initialPages = new Set();
     this.logger = options.logger || createLogger({ base: { component: 'web-agent' } });
   }
 
@@ -28,6 +29,7 @@ export class WebAgent {
     const { chromium } = await import('playwright-core');
     this.browser = await chromium.connectOverCDP(`http://localhost:${this.cdpPort}`);
     this.context = this.browser.contexts()[0] || await this.browser.newContext();
+    this.initialPages = new Set(this.context.pages());
     return this;
   }
 
@@ -47,7 +49,7 @@ export class WebAgent {
     try {
       for (const ctx of this.browser.contexts()) {
         for (const page of ctx.pages()) {
-          await page.close().catch(() => {}); // swallow "already closed"
+          if (!this.initialPages.has(page)) await page.close().catch(() => {});
         }
       }
       this.logger.debug({ stage: 'disconnect' }, 'pages closed, browser left running for user');
@@ -57,6 +59,7 @@ export class WebAgent {
     // 故意不调 browser.close() —— 那是项目红线
     this.browser = null;
     this.context = null;
+    this.initialPages = new Set();
   }
 }
 

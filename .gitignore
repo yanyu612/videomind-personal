@@ -48,6 +48,11 @@ lexiang_final_meta.json
 # Build output
 dist/
 coverage/
+output/
+
+# Local runtime state (video lists, summaries, checkpoints and conversation IDs)
+data/*
+!data/.gitkeep
 
 # IDE
 .vscode/

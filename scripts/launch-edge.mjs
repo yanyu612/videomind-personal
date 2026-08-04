@@ -14,6 +14,10 @@ import http from 'node:http';
 const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const CDP_PORT = 9222;
 const DEBUG_PROFILE = join(tmpdir(), 'videomind-edge-debug');
+const START_PAGES = [
+  'https://www.douyin.com/user/self?from_tab_name=main&showTab=favorite_collection',
+  'https://www.doubao.com/chat/',
+];
 
 // 创建 debug profile 目录（隔离，跟你现有 Edge 不冲突）
 if (!existsSync(DEBUG_PROFILE)) {
@@ -24,7 +28,8 @@ console.log('[launch-edge] 用户 debug profile:', DEBUG_PROFILE);
 
 // Round 12 fix: 使用 detached + shell 启动，关键是不依赖 node 进程不退
 // 在 Windows 上 `start ...` 让 Edge 脱离父进程
-const cmd = `start "" "${EDGE_PATH}" --remote-debugging-port=${CDP_PORT} --remote-allow-origins=* --user-data-dir="${DEBUG_PROFILE}" "about:blank"`;
+const pages = START_PAGES.map(url => `"${url}"`).join(' ');
+const cmd = `start "" "${EDGE_PATH}" --remote-debugging-port=${CDP_PORT} --remote-allow-origins=* --user-data-dir="${DEBUG_PROFILE}" ${pages}`;
 console.log('[launch-edge] 启动:', cmd);
 
 const proc = spawn(cmd, {

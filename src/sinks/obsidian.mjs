@@ -380,6 +380,9 @@ export class ObsidianSink {
    * Escape a string for safe inclusion in a YAML double-quoted value.
    */
   _escapeYaml(s) {
-    return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\r?\n/g, '\\n');
   }
 }

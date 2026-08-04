@@ -266,6 +266,40 @@ export class Checkpoint {
   }
 
   /**
+   * Undo historical false-success records where the web analyzer explicitly
+   * said it could not read the video. They become pending and can be retried.
+   */
+  resetUnreadableCompleted() {
+    if (!this.enabled) return 0;
+    const rows = this.db.prepare(`
+      SELECT url, result FROM analysis_tasks
+      WHERE status = 'completed' AND result IS NOT NULL
+    `).all();
+    const unreadableUrls = [];
+    for (const row of rows) {
+      try {
+        const result = JSON.parse(row.result);
+        const raw = String(result?.analysis || '');
+        const explicitlyUnreadable = /"access_status"\s*:\s*"无法读取"/.test(raw);
+        const legacyTitleOnly = /未能读取视频[^"\n]{0,20}(?:仅依据|只依据)标题/.test(raw);
+        if (explicitlyUnreadable || legacyTitleOnly) unreadableUrls.push(row.url);
+      } catch { /* malformed historical result is handled elsewhere */ }
+    }
+    if (unreadableUrls.length === 0) return 0;
+    const reset = this.db.prepare(`
+      UPDATE analysis_tasks
+      SET status = 'pending', result = NULL, error = 'auto-reset: video unreadable',
+          attempts = 0, started_at = NULL, completed_at = NULL, updated_at = ?
+      WHERE url = ?
+    `);
+    const now = new Date().toISOString();
+    this.db.transaction(urls => {
+      for (const url of urls) reset.run(now, url);
+    })(unreadableUrls);
+    return unreadableUrls.length;
+  }
+
+  /**
    * Clear all checkpoint state. Useful for re-running from scratch.
    */
   clear() {

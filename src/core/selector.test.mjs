@@ -154,13 +154,13 @@ describe('integration: load real doubao selectors (Round 8)', () => {
     }
   });
 
-  test('doubao.json uses WorkBuddy-verified selectors', () => {
+  test('doubao.json uses currently verified selectors', () => {
     const cfg = loadSelectors('doubao');
     // 来自 test_doubao_video.mjs 第 43 行 (已验证)
     assert.equal(
       cfg.selectors.chatInput.primary,
-      "textarea[placeholder='发消息...']",
-      'chatInput should use placeholder selector (verified in WorkBuddy 2026-07-08)'
+      "textarea[placeholder='发消息或按住空格说话...']",
+      'chatInput should use the current Doubao placeholder selector'
     );
     // sendButton primary 是 button[class*='send'] (WorkBuddy test_doubao_video.mjs 第 66 行)
     assert.match(
@@ -188,7 +188,7 @@ describe('integration: load real doubao selectors (Round 8)', () => {
     ];
     const combined = allRespSelectors.join(' ');
     assert.match(combined, /\[class\*=['"]message['"]\]/);
-    assert.match(combined, /\[class\*=['"]markdown['"]\]/);
+    assert.match(combined, /md-box-root/);
     assert.match(combined, /\[class\*=['"]answer['"]\]/);
   });
 });

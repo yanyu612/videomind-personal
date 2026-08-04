@@ -79,8 +79,9 @@ export function mergeEnv(...sources) {
 export const collectSchema = z.object({
   platform: z.enum(SUPPORTED_PLATFORMS).default('douyin'),
   collection: z.string().min(1, 'collection name cannot be empty').default('skills'),
-  cdpPort: z.number().int().min(1).max(65535).default(9222),
+  cdpPort: z.coerce.number().int().min(1).max(65535).default(9222),
   outputFile: z.string().min(1).default('video_list.json'),
+  maxVideos: z.coerce.number().int().min(1).max(10000).default(10000),
 });
 
 /**
@@ -89,12 +90,13 @@ export const collectSchema = z.object({
 export const analyzeSchema = z.object({
   analyzer: z.enum(SUPPORTED_ANALYZERS).default('doubao'),
   mode: z.enum(SUPPORTED_MODES).default('sequential'),
-  cdpPort: z.number().int().min(1).max(65535).default(9222),
+  cdpPort: z.coerce.number().int().min(1).max(65535).default(9222),
   inputFile: z.string().min(1).default('video_list.json'),
   outputFile: z.string().min(1).default('video_analysis.json'),
   // Checkpoint options
   checkpointEnabled: z.boolean().default(true),
   checkpointDb: z.string().min(1).default('.videomind-checkpoint.db'),
+  maxVideos: z.coerce.number().int().min(1).max(500).default(50),
 });
 
 /**
@@ -199,6 +201,7 @@ const ARGV_ALIASES = {
     collection: 'collection',
     'cdp-port': 'cdpPort',
     'output-file': 'outputFile',
+    'max-videos': 'maxVideos',
   },
   analyze: {
     analyzer: 'analyzer',
@@ -208,6 +211,7 @@ const ARGV_ALIASES = {
     'output-file': 'outputFile',
     'checkpoint-db': 'checkpointDb',
     'no-checkpoint': 'checkpointEnabled',  // boolean flag, special-cased below
+    'max-videos': 'maxVideos',
   },
   build: {
     'input-file': 'inputFile',

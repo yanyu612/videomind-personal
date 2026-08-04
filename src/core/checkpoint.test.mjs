@@ -285,6 +285,35 @@ skipIfNoSqlite('Checkpoint — clear', () => {
   });
 });
 
+skipIfNoSqlite('Checkpoint — unreadable results', () => {
+  it('returns historical unreadable completions to pending without touching good results', async () => {
+    const Ckp = await loadCheckpoint();
+    const cp = new Ckp({ dbPath: join(tmpDir, 'test.db') });
+    cp.registerBatch([{ url: 'bad', title: 'Bad' }, { url: 'good', title: 'Good' }]);
+    cp.markCompleted('bad', { analysis: '{"access_status":"无法读取"}' });
+    cp.markCompleted('good', { analysis: '{"access_status":"可读取"}' });
+
+    assert.equal(cp.resetUnreadableCompleted(), 1);
+    assert.equal(cp.isCompleted('bad'), false);
+    assert.equal(cp.isCompleted('good'), true);
+    assert.equal(cp.getStats().pending, 1);
+    cp.close();
+  });
+
+  it('also resets legacy title-only answers that had no access_status field', async () => {
+    const Ckp = await loadCheckpoint();
+    const cp = new Ckp({ dbPath: join(tmpDir, 'test.db') });
+    cp.registerBatch([{ url: 'legacy', title: 'Legacy' }]);
+    cp.markCompleted('legacy', {
+      analysis: '{"transcript":"未能读取视频，仅依据标题和标签"}'
+    });
+
+    assert.equal(cp.resetUnreadableCompleted(), 1);
+    assert.equal(cp.isCompleted('legacy'), false);
+    cp.close();
+  });
+});
+
 describe('Checkpoint — disabled mode', () => {
   it('all methods are no-ops when enabled=false', async () => {
     const Ckp = await loadCheckpoint();

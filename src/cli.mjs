@@ -4,13 +4,16 @@
 
 import { DouyinCollector } from './collectors/douyin.mjs';
 import { DoubaoAnalyzer } from './analyzers/doubao.mjs';
-import { KnowledgeBuilder } from './builders/knowledge-builder.mjs';
+import { KnowledgeBuilder, GENERAL_CATEGORIES } from './builders/knowledge-builder.mjs';
 import { MarkdownSink } from './sinks/markdown.mjs';
 import { Orchestrator } from './core/orchestrator.mjs';
 import { getLimiter } from './core/rate-limiter.mjs';
 import { createLogger } from './core/logger.mjs';
 import { loadConfig, ConfigError, SUPPORTED_PLATFORMS, SUPPORTED_ANALYZERS, SUPPORTED_SINKS, SUPPORTED_MODES } from './core/config.mjs';
 import { chromium } from 'playwright-core';
+import { canonicalizeVideoUrl } from './core/video-url.mjs';
+import { recordCompletedVideo } from './core/obsidian-ledger.mjs';
+import { makeProgressBar, shortTitle } from './core/console-progress.mjs';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -47,6 +50,7 @@ Options:
   --sink        ${SUPPORTED_SINKS.join(' | ')} (default: markdown)
   --mode        ${SUPPORTED_MODES.join(' | ')} (default: sequential)
   --cdp-port    Chrome CDP port (default: 9222)
+  --max-videos  Maximum unfinished videos to analyze this run (default: 50)
 
 Prerequisites:
   Start Chrome with remote debugging:
@@ -79,7 +83,7 @@ async function runWithConfig(commandName, handler) {
 }
 
 async function collect(cfg) {
-  const { platform, collection, cdpPort, outputFile } = cfg;
+  const { platform, collection, cdpPort, outputFile, maxVideos } = cfg;
 
   logger.info({ stage: 'collect', cdpPort, platform, collection }, 'connecting to Chrome CDP');
   const browser = await chromium.connectOverCDP(`http://localhost:${cdpPort}`);
@@ -87,7 +91,7 @@ async function collect(cfg) {
 
   if (platform === 'douyin') {
     const collector = new DouyinCollector(context);
-    const videos = await collector.collect(collection);
+    const videos = await collector.collect(collection, { maxVideos });
     logger.info({ stage: 'collect', count: videos.length, collection }, 'videos collected');
 
     // Save to file
@@ -95,11 +99,13 @@ async function collect(cfg) {
     fs.writeFileSync(outputFile, JSON.stringify(videos, null, 2));
   }
 
-  await browser.close();
+  // End only this short-lived collector process. Calling browser.close() on a
+  // CDP connection can disturb the user's persistent Edge tabs.
+  process.exit(0);
 }
 
 async function analyze(cfg) {
-  const { analyzer: analyzerName, fallback, mode, cdpPort, inputFile, outputFile, checkpointEnabled, checkpointDb } = cfg;
+  const { analyzer: analyzerName, fallback, mode, cdpPort, inputFile, outputFile, checkpointEnabled, checkpointDb, maxVideos } = cfg;
 
   logger.info({ stage: 'analyze', analyzer: analyzerName, fallback, mode }, 'analysis starting');
 
@@ -110,6 +116,10 @@ async function analyze(cfg) {
   if (checkpointDb) cpCfg.dbPath = checkpointDb;
   const checkpoint = new Checkpoint(cpCfg);
   if (checkpoint.enabled) {
+    const resetUnreadable = checkpoint.resetUnreadableCompleted();
+    if (resetUnreadable > 0) {
+      logger.warn({ stage: 'analyze', resetUnreadable }, 'unreadable cached results reset for retry');
+    }
     const stats = checkpoint.getStats();
     if (stats.total > 0) {
       logger.info({ stage: 'analyze', stats, dbPath: cpCfg.dbPath }, 'resuming from checkpoint');
@@ -131,15 +141,46 @@ async function analyze(cfg) {
 
   // Load video list
   const fs = await import('fs');
-  const videos = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+  const loadedVideos = JSON.parse(fs.readFileSync(inputFile, 'utf8')).map(video => ({
+    ...video,
+    originalUrl: video.originalUrl || video.url,
+    url: canonicalizeVideoUrl(video.url),
+  }));
+  const videos = [...new Map(loadedVideos.map(video => [video.url, video])).values()];
 
   // Register all videos in checkpoint (idempotent)
   if (checkpoint.enabled) {
     checkpoint.registerBatch(videos.map(v => ({ url: v.url, title: v.title })));
   }
 
+  // Only spend Web-AI time on unfinished items, and cap each run to a user-sized batch.
+  // Completed items remain in SQLite and are included in finalResults below.
+  const unfinishedVideos = checkpoint.enabled
+    ? videos.filter(video => !checkpoint.isCompleted(video.url))
+    : videos;
+  const videosThisRun = unfinishedVideos.slice(0, maxVideos);
+  logger.info({
+    stage: 'analyze',
+    batchLimit: maxVideos,
+    unfinished: unfinishedVideos.length,
+    processingNow: videosThisRun.length,
+    skippedCompleted: videos.length - unfinishedVideos.length
+  }, 'analysis batch prepared');
+
   const results = [];
-  for (const video of videos) {
+  let attemptedThisRun = 0;
+  const batchTotal = videosThisRun.length;
+  console.log(`\n本批进度 ${makeProgressBar(0, batchTotal)}${batchTotal === 0 ? ' 没有需要处理的新视频' : ''}`);
+  const recordImmediately = (video, result) => {
+    try {
+      const saved = recordCompletedVideo(video, result);
+      logger.info({ stage: 'obsidian-ledger', url: video.url, videoId: saved.id, ledgerCount: saved.count }, 'video ID saved immediately');
+    } catch (e) {
+      logger.error({ stage: 'obsidian-ledger', url: video.url, err: e.message }, 'immediate video ID save failed');
+    }
+  };
+  for (const video of videosThisRun) {
+    console.log(`\n正在处理第 ${attemptedThisRun + 1}/${batchTotal} 条：${shortTitle(video.title)}`);
     try {
       // Round 20: --mode consensus → 同跑多 AI + arbitrate 字段级投票
       //          --mode sequential (默认) → 主备 fallback 链
@@ -154,6 +195,7 @@ async function analyze(cfg) {
           checkpoint.markCompleted(video.url, resultWithConsensus);
         }
         results.push(resultWithConsensus);
+        recordImmediately(video, resultWithConsensus);
         logger.info({
           stage: 'analyze',
           url: video.url,
@@ -166,9 +208,14 @@ async function analyze(cfg) {
         // Round 9: Router 内部处理 chain + fallback，不传参数
         const result = await orchestrator.analyzeSequential(video);
         results.push(result);
+        recordImmediately(video, result);
         logger.info({ stage: 'analyze', url: video.url, title: video.title?.substring(0, 30) }, 'video analyzed');
       }
+      attemptedThisRun++;
+      console.log(`本批进度 ${makeProgressBar(attemptedThisRun, batchTotal)} ✓ ${shortTitle(video.title)}`);
     } catch (e) {
+      attemptedThisRun++;
+      console.log(`本批进度 ${makeProgressBar(attemptedThisRun, batchTotal)} ⚠ 本条失败，保留待重试：${shortTitle(video.title)}`);
       logger.error({ stage: 'analyze', url: video.url, title: video.title?.substring(0, 30), err: e.message }, 'video analysis failed');
     }
   }
@@ -178,7 +225,7 @@ async function analyze(cfg) {
     ? checkpoint.getCompletedResults()
     : results;
   fs.writeFileSync(outputFile, JSON.stringify(finalResults, null, 2));
-  logger.info({ stage: 'analyze', total: finalResults.length, expected: videos.length, outputFile }, 'analysis complete');
+  logger.info({ stage: 'analyze', total: finalResults.length, expected: videos.length, processedThisRun: videosThisRun.length, outputFile }, 'analysis complete');
 
   // Print checkpoint + rate limiter stats
   if (checkpoint.enabled) {
@@ -190,6 +237,8 @@ async function analyze(cfg) {
 
   checkpoint.close();
   await orchestrator.shutdown();
+  // WebAgent keeps the persistent browser alive; release only this CLI process.
+  process.exit(0);
 }
 
 async function build(cfg) {
@@ -198,7 +247,7 @@ async function build(cfg) {
   const fs = await import('fs');
   const analyses = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
 
-  const builder = new KnowledgeBuilder();
+  const builder = new KnowledgeBuilder({ includeAll: true, categories: GENERAL_CATEGORIES });
   const kb = builder.build(analyses);
 
   fs.writeFileSync(outputFile, JSON.stringify(kb, null, 2));

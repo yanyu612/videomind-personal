@@ -16,6 +16,7 @@
 
 import { getLimiter } from '../core/rate-limiter.mjs';
 import { loadSelectors, waitForElement, captureFailure } from '../core/selector.mjs';
+import { canonicalizeVideoUrl } from '../core/video-url.mjs';
 
 export class DouyinCollector {
   constructor(context, options = {}) {
@@ -138,7 +139,7 @@ export class DouyinCollector {
       // (.route-scroll-container 内部滚动 + scrollTop += 400)
       const seen = new Set();
       let stableCount = 0;
-      const MAX_SCROLL_ATTEMPTS = 80;
+      const MAX_SCROLL_ATTEMPTS = 1000;
 
       for (let i = 0; i < MAX_SCROLL_ATTEMPTS; i++) {
         // 滚 .route-scroll-container 内部 (不是 window)
@@ -165,11 +166,13 @@ export class DouyinCollector {
 
         const before = seen.size;
         for (const v of rawVideos) {
-          if (seen.has(v.url)) continue;
-          seen.add(v.url);
+          const rawUrl = v.url.startsWith('http') ? v.url : `${this.baseUrl}${v.url}`;
+          const stableUrl = canonicalizeVideoUrl(rawUrl);
+          if (seen.has(stableUrl)) continue;
+          seen.add(stableUrl);
           const tags = includeTags ? this.extractTags(v.title) : [];
           videos.push({
-            url: v.url.startsWith('http') ? v.url : `${this.baseUrl}${v.url}`,
+            url: stableUrl,
             title: (v.title || '').trim(),
             author: '',
             tags,
@@ -207,7 +210,7 @@ export class DouyinCollector {
       await page.close();
     }
 
-    return videos;
+    return videos.slice(0, maxVideos);
   }
 
   /**

@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-10",
-  "lastVerified": "2026-07-10",
+  "version": "2026-08-04",
+  "lastVerified": "2026-08-04",
   "platform": "doubao",
   "verifiedOn": "咕咕鸟的豆包账号 (via WorkBuddy test_doubao.mjs)",
   "userAgent": "Edg/150.0.4078.48",
@@ -12,8 +12,9 @@
   ],
   "selectors": {
     "chatInput": {
-      "primary": "textarea[placeholder='发消息...']",
+      "primary": "textarea[placeholder='发消息或按住空格说话...']",
       "fallback": [
+        "textarea[placeholder*='发消息']",
         "textarea.semi-input-textarea",
         "textarea",
         "[contenteditable='true']",
@@ -33,8 +34,9 @@
       "description": "发送按钮 (找不到时 fallback 按 Enter)"
     },
     "responseContainer": {
-      "primary": "[class*='markdown']:last-of-type",
+      "primary": ".md-box-root",
       "fallback": [
+        "[class*='md-box-root']",
         "[class*='message']",
         "[class*='chat-content']",
         "[class*='answer']",

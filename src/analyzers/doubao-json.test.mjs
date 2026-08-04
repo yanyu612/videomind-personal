@@ -9,7 +9,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DoubaoAnalyzer } from './doubao.mjs';
+import { DoubaoAnalyzer, responseAfterLastMatchingPrompt } from './doubao.mjs';
 
 const analyzer = new DoubaoAnalyzer(null); // no browser context needed
 
@@ -19,6 +19,32 @@ const baseVideo = {
   author: '作者A',
   tags: ['AI'],
 };
+
+describe('Doubao conversation pairing', () => {
+  it('uses the answer after the last prompt for the same video ID', () => {
+    const messages = [
+      { isUser: true, text: '原链接：https://www.douyin.com/video/1234567890123' },
+      { isUser: false, text: '{"title":"旧回答"}' },
+      { isUser: true, text: '另一个视频 9999999999999' },
+      { isUser: false, text: '{"title":"其他回答"}' },
+      { isUser: true, text: '重试原链接：https://www.douyin.com/video/1234567890123' },
+      { isUser: false, text: '{"title":"新回答"}' },
+    ];
+    assert.equal(
+      responseAfterLastMatchingPrompt(messages, 'https://www.douyin.com/video/1234567890123'),
+      '{"title":"新回答"}'
+    );
+  });
+
+  it('does not reuse an old answer while the latest matching prompt is unanswered', () => {
+    const messages = [
+      { isUser: true, text: '视频 1234567890123' },
+      { isUser: false, text: '{"title":"旧回答"}' },
+      { isUser: true, text: '再次处理 1234567890123' },
+    ];
+    assert.equal(responseAfterLastMatchingPrompt(messages, '1234567890123'), '');
+  });
+});
 
 describe('Doubao JSON parser — tryParseJSON', () => {
   it('parses raw JSON object', () => {
@@ -223,20 +249,34 @@ describe('Doubao JSON parser — parseResponse dual mode', () => {
 });
 
 describe('Doubao JSON parser — buildPrompt updates', () => {
+  it('defaults to exactly two attempts for an unreadable video', () => {
+    const retryAnalyzer = new DoubaoAnalyzer(null);
+    assert.equal(retryAnalyzer.maxRetries, 2);
+  });
+
+  it('adds a fresh-read instruction to the second attempt', () => {
+    const retryAnalyzer = new DoubaoAnalyzer(null);
+    retryAnalyzer.unreadableRetryUrls.add(baseVideo.url);
+    const prompt = retryAnalyzer.buildPrompt(baseVideo);
+    assert.ok(prompt.includes('这是第二次读取尝试'));
+    assert.ok(prompt.includes('不要沿用上一次的“无法读取”回答'));
+  });
+
   it('prompt includes JSON format instruction', () => {
     const prompt = analyzer.buildPrompt(baseVideo);
     assert.ok(prompt.includes('JSON'), 'prompt should mention JSON');
-    assert.ok(prompt.includes('skill_name'), 'prompt should specify JSON schema fields');
-    assert.ok(prompt.includes('"严格 JSON"') || prompt.includes('仅'), 'prompt should demand JSON-only output');
-    assert.ok(prompt.includes('不要使用 markdown 代码块包裹') || prompt.includes('不'), 'prompt should forbid markdown wrapping');
+    assert.ok(prompt.includes('content_type'), 'prompt should specify adaptive knowledge-card fields');
+    assert.ok(prompt.includes('只返回合法 JSON'), 'prompt should demand JSON-only output');
+    assert.ok(prompt.includes('不要代码块'), 'prompt should forbid markdown wrapping');
   });
 
-  it('prompt still includes original 10-dimension requirements', () => {
+  it('prompt uses the accepted adaptive Obsidian template', () => {
     const prompt = analyzer.buildPrompt(baseVideo);
-    assert.ok(prompt.includes('技能名称'));
-    assert.ok(prompt.includes('技能等级'));
-    assert.ok(prompt.includes('核心要点'));
-    assert.ok(prompt.includes('关键词标签'));
+    assert.ok(prompt.includes('菜谱'));
+    assert.ok(prompt.includes('运动'));
+    assert.ok(prompt.includes('家居清洁'));
+    assert.ok(prompt.includes('观点鸡汤'));
+    assert.ok(!prompt.includes('技能等级'));
   });
 });
 

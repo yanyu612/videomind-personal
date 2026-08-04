@@ -58,6 +58,7 @@ export class AnalyzerRouter {
     this.context = options.context;
     this.logger = options.logger || createLogger({ base: { component: 'router' } });
     this.checkpoint = options.checkpoint || null;
+    this._instances = new Map();
 
     // 去重 chain: 保持顺序，去掉所有重复项（primary + fallback 内部重复都处理）
     const seen = new Set();
@@ -75,6 +76,18 @@ export class AnalyzerRouter {
    */
   get chain() {
     return [...this._chain];
+  }
+
+  _getAnalyzer(name, mode = 'sequential') {
+    const key = `${mode}:${name}`;
+    if (this._instances.has(key)) return this._instances.get(key);
+    const AnalyzerClass = this.registry[name];
+    if (!AnalyzerClass) return null;
+    const analyzer = new AnalyzerClass(this.context, {
+      logger: this.logger.child?.({ analyzer: name, mode }) || this.logger
+    });
+    this._instances.set(key, analyzer);
+    return analyzer;
   }
 
   /**
@@ -121,9 +134,7 @@ export class AnalyzerRouter {
       // 实例化 + 调用
       let analyzer;
       try {
-        analyzer = new AnalyzerClass(this.context, {
-          logger: this.logger.child?.({ analyzer: name }) || this.logger
-        });
+        analyzer = this._getAnalyzer(name);
         const result = await analyzer.analyze(video, attachments);
 
         if (result && result.analysis) {
@@ -206,9 +217,7 @@ export class AnalyzerRouter {
 
       let analyzer;
       try {
-        analyzer = new AnalyzerClass(this.context, {
-          logger: this.logger.child?.({ analyzer: name, mode: 'consensus' }) || this.logger
-        });
+        analyzer = this._getAnalyzer(name, 'consensus');
         const result = await analyzer.analyze(video, attachments);
         if (result && result.analysis) {
           responses.push({ analyzer: name, result });
