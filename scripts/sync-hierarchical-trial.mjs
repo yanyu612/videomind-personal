@@ -212,7 +212,6 @@ const topicRoot = [
 writeFileSync(join(vault, '主题', '主题.md'), topicRoot.join('\n'), 'utf8');
 
 const MAX_GRAPH_CHILDREN = 12;
-const categoryGraphParents = new Map();
 const videoGraphParents = new Map();
 function addBalancedLinks(lines, { parts, kind, items, targetFor, recordBranchParent }) {
   if (items.length <= MAX_GRAPH_CHILDREN) {
@@ -257,10 +256,7 @@ for (const [key, childNames] of children) {
 
   const parentLink = parts.length === 1
     ? link('分类/分类', '返回分类')
-    : link(
-        categoryGraphParents.get(parts.join('/')) || categoryIndexPath(parts.slice(0, -1)),
-        `返回${parts.at(-2)}`,
-      );
+    : link(categoryIndexPath(parts.slice(0, -1)), `返回${parts.at(-2)}`);
   const lines = [
     '---', 'type: category-index', `category_path: "${parts.join(' / ')}"`,
     '---', '', `# ${name}`, '',
@@ -268,16 +264,11 @@ for (const [key, childNames] of children) {
   ];
   if (childNames.size > 0) {
     lines.push('## 子分类', '');
-    const items = [...childNames]
-      .sort((a, b) => a.localeCompare(b, 'zh-CN'))
-      .map(child => ({ label: child, child }));
-    addBalancedLinks(lines, {
-      parts, kind: '分类', items,
-      targetFor: item => categoryIndexPath([...parts, item.child]),
-      recordBranchParent: (item, branchPath) => {
-        categoryGraphParents.set([...parts, item.child].join('/'), branchPath);
-      },
-    });
+    // Categories are semantic navigation and must always remain visible by
+    // their real names. Never hide them behind numbered "分类分支-01" notes.
+    for (const child of [...childNames].sort((a, b) => a.localeCompare(b, 'zh-CN'))) {
+      lines.push(`- ${link(categoryIndexPath([...parts, child]), child)}`);
+    }
   } else {
     lines.push('## 视频', '');
     const items = [...(videosAt.get(key) || [])]

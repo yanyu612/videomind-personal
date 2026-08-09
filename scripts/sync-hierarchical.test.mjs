@@ -91,7 +91,7 @@ describe('hierarchical Obsidian sync', () => {
     assert.doesNotMatch(ledger, /\[\[分类\//);
   });
 
-  it('caps every generated graph branch at twelve children', () => {
+  it('keeps real subcategories visible and caps only video branches', () => {
     const root = mkdtempSync(join(tmpdir(), 'videomind-branches-'));
     temporary.push(root);
     const vault = join(root, 'vault');
@@ -133,11 +133,13 @@ describe('hierarchical Obsidian sync', () => {
     assert.doesNotMatch(firstVideo, /所属分类.*「清洁」/);
 
     const learning = readFileSync(join(vault, '分类', '学习', '学习方法', '「学习方法」.md'), 'utf8');
-    assert.equal((learning.match(/\[\[系统\/关系图分支/g) || []).length, 3);
+    assert.equal((learning.match(/\[\[分类\/学习\/学习方法\/知识类型/g) || []).length, 25);
+    assert.doesNotMatch(learning, /分类分支-/);
     const firstLearningCategory = readFileSync(
       join(vault, '分类', '学习', '学习方法', '知识类型 01', '「知识类型 01」.md'), 'utf8',
     );
-    assert.match(firstLearningCategory, /\[\[系统\/关系图分支\/学习\/学习方法\/分类分支-01\|返回学习方法\]\]/);
+    assert.match(firstLearningCategory, /\[\[分类\/学习\/学习方法\/「学习方法」\|返回学习方法\]\]/);
+    assert.equal(existsSync(join(vault, '系统', '关系图分支', '学习', '学习方法', '分类分支-01.md')), false);
   });
 
   it('prefixes links from the detected Obsidian vault root', () => {
