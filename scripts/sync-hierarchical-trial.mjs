@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { canonicalizeVideoUrl } from '../src/core/video-url.mjs';
 import { categoryHierarchy } from '../src/core/category-hierarchy.mjs';
 import { DoubaoAnalyzer } from '../src/analyzers/doubao.mjs';
@@ -10,6 +10,7 @@ const vault = resolve(process.argv[3] || 'F:\\jiyi\\闻叙的记忆小屋\\抖�
 const incomingRows = JSON.parse(readFileSync(input, 'utf8'));
 const responseParser = new DoubaoAnalyzer(null);
 const ledgerDir = join(vault, '系统', '视频ID索引');
+const graphBranchRoot = join(vault, '系统', '关系图分支');
 const ledgerJson = join(ledgerDir, '已收藏视频数据.json');
 const ledgerMd = join(ledgerDir, '已收藏视频ID.md');
 let savedRows = [];
@@ -26,6 +27,25 @@ for (const row of [...savedRows, ...incomingRows]) {
   mergedRows.set(url, { ...row, originalUrl: row.originalUrl || row.url, url });
 }
 const rows = [...mergedRows.values()];
+
+function findObsidianRoot(start) {
+  let current = resolve(start);
+  while (true) {
+    if (existsSync(join(current, '.obsidian'))) return current;
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+// Obsidian wikilink paths are rooted at the folder containing .obsidian. The
+// knowledge base is usually a subfolder of a larger personal vault, so links
+// such as [[分类/...]] are ambiguous when filenames repeat. Prefix only the
+// relative vault folder, never a drive letter, to stay portable across PCs.
+const obsidianRoot = findObsidianRoot(vault);
+const knowledgePrefix = obsidianRoot
+  ? relative(obsidianRoot, vault).replaceAll('\\', '/')
+  : '';
 
 function extractObject(text) {
   const parsed = responseParser.tryParseJSON(text);
@@ -54,7 +74,10 @@ function safe(name) {
   return String(name || '未命名').replace(/[\\/:*?"<>|\x00-\x1f]/g, '-').trim().slice(0, 90);
 }
 
-function link(path, label) { return `[[${path}|${label}]]`; }
+function link(path, label) {
+  const fullPath = knowledgePrefix ? `${knowledgePrefix}/${path}` : path;
+  return `[[${fullPath}|${label}]]`;
+}
 function categoryIndexName(name) { return `「${safe(name)}」`; }
 function categoryIndexPath(parts) {
   return `分类/${parts.join('/')}/${categoryIndexName(parts.at(-1))}`;
@@ -86,6 +109,23 @@ mkdirSync(join(vault, '分类'), { recursive: true });
 mkdirSync(join(vault, '主题'), { recursive: true });
 mkdirSync(join(vault, '视频'), { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
+
+// Remove only program-generated graph branch notes from previous runs. This
+// keeps the branch fan-out accurate when categories or video counts change.
+function clearGeneratedGraphBranches(dir, keepRoot = false) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) clearGeneratedGraphBranches(path);
+    else if (entry.isFile() && entry.name.endsWith('.md')) {
+      const text = readFileSync(path, 'utf8');
+      if (text.includes('type: graph-branch')) unlinkSync(path);
+    }
+  }
+  if (!keepRoot && existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir);
+}
+clearGeneratedGraphBranches(graphBranchRoot, true);
+mkdirSync(graphBranchRoot, { recursive: true });
 
 // Remove generated cards that are no longer part of the valid checkpoint
 // export. This also cleans up duplicates created by older template versions.
@@ -171,6 +211,37 @@ const topicRoot = [
 ];
 writeFileSync(join(vault, '主题', '主题.md'), topicRoot.join('\n'), 'utf8');
 
+const MAX_GRAPH_CHILDREN = 12;
+const categoryGraphParents = new Map();
+const videoGraphParents = new Map();
+function addBalancedLinks(lines, { parts, kind, items, targetFor, recordBranchParent }) {
+  if (items.length <= MAX_GRAPH_CHILDREN) {
+    for (const item of items) lines.push(`- ${link(targetFor(item), item.label)}`);
+    return;
+  }
+
+  const branchDir = join(graphBranchRoot, ...parts);
+  mkdirSync(branchDir, { recursive: true });
+  for (let start = 0; start < items.length; start += MAX_GRAPH_CHILDREN) {
+    const group = items.slice(start, start + MAX_GRAPH_CHILDREN);
+    const number = String(Math.floor(start / MAX_GRAPH_CHILDREN) + 1).padStart(2, '0');
+    const filename = `${kind}分支-${number}`;
+    const branchPath = `系统/关系图分支/${parts.join('/')}/${filename}`;
+    const range = `${start + 1}–${start + group.length}`;
+    lines.push(`- ${link(branchPath, `${kind} ${range}`)}`);
+    for (const item of group) recordBranchParent?.(item, branchPath);
+
+    const branch = [
+      '---', 'type: graph-branch', `branch_kind: ${kind}`, '---', '',
+      `# ${parts.at(-1)} · ${kind} ${range}`, '',
+      `← ${link(categoryIndexPath(parts), `返回${parts.at(-1)}`)}`, '',
+      `## ${kind}`, '',
+      ...group.map(item => `- ${link(targetFor(item), item.label)}`), ''
+    ];
+    writeFileSync(join(branchDir, `${filename}.md`), branch.join('\n'), 'utf8');
+  }
+}
+
 // Folders are invisible in Obsidian's graph, so every category level gets one
 // small index note. Each note links only to its parent and direct children (or
 // videos at a leaf), producing a real tree instead of a flat hub.
@@ -186,7 +257,10 @@ for (const [key, childNames] of children) {
 
   const parentLink = parts.length === 1
     ? link('分类/分类', '返回分类')
-    : link(categoryIndexPath(parts.slice(0, -1)), `返回${parts.at(-2)}`);
+    : link(
+        categoryGraphParents.get(parts.join('/')) || categoryIndexPath(parts.slice(0, -1)),
+        `返回${parts.at(-2)}`,
+      );
   const lines = [
     '---', 'type: category-index', `category_path: "${parts.join(' / ')}"`,
     '---', '', `# ${name}`, '',
@@ -194,16 +268,26 @@ for (const [key, childNames] of children) {
   ];
   if (childNames.size > 0) {
     lines.push('## 子分类', '');
-    for (const child of [...childNames].sort((a, b) => a.localeCompare(b, 'zh-CN'))) {
-      lines.push(`- ${link(categoryIndexPath([...parts, child]), child)}`);
-    }
+    const items = [...childNames]
+      .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+      .map(child => ({ label: child, child }));
+    addBalancedLinks(lines, {
+      parts, kind: '分类', items,
+      targetFor: item => categoryIndexPath([...parts, item.child]),
+      recordBranchParent: (item, branchPath) => {
+        categoryGraphParents.set([...parts, item.child].join('/'), branchPath);
+      },
+    });
   } else {
     lines.push('## 视频', '');
-    const leafVideos = [...(videosAt.get(key) || [])]
-      .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
-    for (const card of leafVideos) {
-      lines.push(`- ${link(`分类/${card.tree.join('/')}/${card.title}`, card.title)}`);
-    }
+    const items = [...(videosAt.get(key) || [])]
+      .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'))
+      .map(card => ({ label: card.title, card }));
+    addBalancedLinks(lines, {
+      parts, kind: '视频', items,
+      targetFor: item => `分类/${item.card.tree.join('/')}/${item.card.title}`,
+      recordBranchParent: (item, branchPath) => videoGraphParents.set(item.card, branchPath),
+    });
   }
   lines.push('');
   writeFileSync(join(dir, `${categoryIndexName(name)}.md`), lines.join('\n'), 'utf8');
@@ -227,7 +311,8 @@ for (const card of cards) {
   const categoryPath = tree.join(' → ');
   const categoryTag = `分类/${tree.join('/')}`;
   const topicText = (data.topics || []).map(x => String(x).trim()).filter(Boolean).join('、') || '暂无';
-  const leafIndex = link(categoryIndexPath(tree), tree.at(-1));
+  const graphParent = videoGraphParents.get(card) || categoryIndexPath(tree);
+  const leafIndex = link(graphParent, tree.at(-1));
   const lines = [
     '---', 'type: 视频知识卡', `内容类型: ${data.content_type || '其他'}`, `原视频: "${row.url}"`,
     `整理时间: ${new Date().toISOString()}`, `分类路径: "${categoryPath}"`, '---', '',

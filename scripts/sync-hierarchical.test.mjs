@@ -90,4 +90,74 @@ describe('hierarchical Obsidian sync', () => {
     const ledger = readFileSync(join(vault, '系统', '视频ID索引', '已收藏视频ID.md'), 'utf8');
     assert.doesNotMatch(ledger, /\[\[分类\//);
   });
+
+  it('caps every generated graph branch at twelve children', () => {
+    const root = mkdtempSync(join(tmpdir(), 'videomind-branches-'));
+    temporary.push(root);
+    const vault = join(root, 'vault');
+    const input = join(root, 'rows.json');
+    const rows = [];
+    for (let i = 1; i <= 25; i++) {
+      rows.push(makeRow(`200${String(i).padStart(2, '0')}`, `清洁视频 ${String(i).padStart(2, '0')}`, {
+        title: `清洁视频 ${String(i).padStart(2, '0')}`, content_type: '家居清洁',
+        summary: '摘要', key_points: ['要点'],
+      }));
+      rows.push(makeRow(`300${String(i).padStart(2, '0')}`, `学习视频 ${String(i).padStart(2, '0')}`, {
+        title: `学习视频 ${String(i).padStart(2, '0')}`, content_type: '学习',
+        category_secondary: `知识类型 ${String(i).padStart(2, '0')}`,
+        summary: '摘要', key_points: ['要点'],
+      }));
+    }
+    writeFileSync(input, JSON.stringify(rows), 'utf8');
+    const result = spawnSync(process.execPath, [script, input, vault], {
+      cwd: resolve('.'), encoding: 'utf8', timeout: 20_000,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const leaf = readFileSync(join(vault, '分类', '生活', '家庭管理', '清洁', '「清洁」.md'), 'utf8');
+    assert.equal((leaf.match(/\[\[系统\/关系图分支/g) || []).length, 3);
+    assert.doesNotMatch(leaf, /\[\[分类\/生活\/家庭管理\/清洁\/清洁视频/);
+
+    const branchDir = join(vault, '系统', '关系图分支', '生活', '家庭管理', '清洁');
+    const branches = ['视频分支-01.md', '视频分支-02.md', '视频分支-03.md']
+      .map(name => readFileSync(join(branchDir, name), 'utf8'));
+    const videoLink = /\[\[分类\/生活\/家庭管理\/清洁\/清洁视频/g;
+    assert.equal((branches[0].match(videoLink) || []).length, 12);
+    assert.equal((branches[1].match(videoLink) || []).length, 12);
+    assert.equal((branches[2].match(videoLink) || []).length, 1);
+
+    const firstVideo = readFileSync(
+      join(vault, '分类', '生活', '家庭管理', '清洁', '清洁视频 01.md'), 'utf8',
+    );
+    assert.match(firstVideo, /所属分类.*\[\[系统\/关系图分支\/生活\/家庭管理\/清洁\/视频分支-01\|清洁\]\]/);
+    assert.doesNotMatch(firstVideo, /所属分类.*「清洁」/);
+
+    const learning = readFileSync(join(vault, '分类', '学习', '学习方法', '「学习方法」.md'), 'utf8');
+    assert.equal((learning.match(/\[\[系统\/关系图分支/g) || []).length, 3);
+    const firstLearningCategory = readFileSync(
+      join(vault, '分类', '学习', '学习方法', '知识类型 01', '「知识类型 01」.md'), 'utf8',
+    );
+    assert.match(firstLearningCategory, /\[\[系统\/关系图分支\/学习\/学习方法\/分类分支-01\|返回学习方法\]\]/);
+  });
+
+  it('prefixes links from the detected Obsidian vault root', () => {
+    const root = mkdtempSync(join(tmpdir(), 'videomind-rooted-links-'));
+    temporary.push(root);
+    mkdirSync(join(root, '.obsidian'), { recursive: true });
+    const vault = join(root, '抖音收藏知识库');
+    const input = join(root, 'rows.json');
+    writeFileSync(input, JSON.stringify([
+      makeRow('40001', '路径测试', {
+        title: '路径测试', content_type: '家居清洁', summary: '摘要', key_points: ['要点'],
+      }),
+    ]), 'utf8');
+    const result = spawnSync(process.execPath, [script, input, vault], {
+      cwd: resolve('.'), encoding: 'utf8', timeout: 20_000,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const home = readFileSync(join(vault, '首页.md'), 'utf8');
+    assert.match(home, /\[\[抖音收藏知识库\/分类\/分类\|分类\]\]/);
+    const video = readFileSync(join(vault, '分类', '生活', '家庭管理', '清洁', '路径测试.md'), 'utf8');
+    assert.match(video, /\[\[抖音收藏知识库\/分类\/生活\/家庭管理\/清洁\/「清洁」\|清洁\]\]/);
+  });
 });
