@@ -55,6 +55,10 @@ function safe(name) {
 }
 
 function link(path, label) { return `[[${path}|${label}]]`; }
+function categoryIndexName(name) { return `「${safe(name)}」`; }
+function categoryIndexPath(parts) {
+  return `分类/${parts.join('/')}/${categoryIndexName(parts.at(-1))}`;
+}
 function bullets(items) {
   if (!items || (Array.isArray(items) && items.length === 0)) return '- 暂无';
   return (Array.isArray(items) ? items : [items]).map(x => `- ${x}`).join('\n');
@@ -79,7 +83,6 @@ const cards = rows.map(row => {
 
 mkdirSync(vault, { recursive: true });
 mkdirSync(join(vault, '分类'), { recursive: true });
-mkdirSync(join(vault, '主题'), { recursive: true });
 mkdirSync(join(vault, '视频'), { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
 
@@ -95,7 +98,9 @@ function removeObsoleteGeneratedCards(dir) {
     if (entry.isDirectory()) removeObsoleteGeneratedCards(path);
     else if (entry.isFile() && entry.name.endsWith('.md')) {
       const text = readFileSync(path, 'utf8');
-      if (text.includes('type: 视频知识卡') && !desiredCardPaths.has(resolve(path).toLowerCase())) {
+      if (text.includes('type: category-index')) {
+        unlinkSync(path);
+      } else if (text.includes('type: 视频知识卡') && !desiredCardPaths.has(resolve(path).toLowerCase())) {
         unlinkSync(path);
       }
     }
@@ -120,18 +125,20 @@ const top = [...new Set(cards.map(c => c.tree[0]))];
 const home = [
   '---', 'type: knowledge-home', 'tags: [抖音收藏, 知识地图]', '---', '',
   '# 抖音收藏知识库', '',
-  '> 按“生活、工作、学习”等大类逐层浏览；每个视频同时连接分类与主题。', '',
+  '> 按“首页 → 大类 → 子类 → 视频”逐层浏览。关系图只保留这棵分类树。', '',
   '## 大类', '',
-  ...top.map(x => `- **${x}**`), '',
-  '## 本次测试视频', '',
-  ...cards.map(c => `- ${link(`分类/${c.tree.join('/')}/${c.title}`, c.title)} · ${c.tree.join(' → ')}`), ''
+  ...top.map(x => `- ${link(categoryIndexPath([x]), x)}`), ''
 ];
 writeFileSync(join(vault, '首页.md'), home.join('\n'), 'utf8');
-writeFileSync(join(vault, 'README.md'), home.join('\n'), 'utf8');
+// README used to duplicate 首页 and link to every video, which turned the
+// Obsidian graph into a giant hub-and-spoke "sea urchin". 首页 is the only root.
+const legacyReadme = join(vault, 'README.md');
+if (existsSync(legacyReadme)) unlinkSync(legacyReadme);
 
-// Category hierarchy is represented by real folders. Do not create a
-// repetitive 目录.md at every level; the leaf folder contains video notes.
-for (const [key] of children) {
+// Folders are invisible in Obsidian's graph, so every category level gets one
+// small index note. Each note links only to its parent and direct children (or
+// videos at a leaf), producing a real tree instead of a flat hub.
+for (const [key, childNames] of children) {
   const parts = key.split('/');
   const name = parts.at(-1);
   const legacyFile = join(vault, '分类', ...parts.slice(0, -1), `${safe(name)}.md`);
@@ -140,35 +147,51 @@ for (const [key] of children) {
   const directoryNote = join(dir, '目录.md');
   if (existsSync(directoryNote)) unlinkSync(directoryNote);
   if (existsSync(legacyFile)) unlinkSync(legacyFile);
+
+  const parentLink = parts.length === 1
+    ? link('首页', '返回首页')
+    : link(categoryIndexPath(parts.slice(0, -1)), `返回${parts.at(-2)}`);
+  const lines = [
+    '---', 'type: category-index', `category_path: "${parts.join(' / ')}"`,
+    'tags: [抖音收藏, 分类索引]', '---', '', `# ${name}`, '',
+    `← ${parentLink}`, '',
+  ];
+  if (childNames.size > 0) {
+    lines.push('## 子分类', '');
+    for (const child of [...childNames].sort((a, b) => a.localeCompare(b, 'zh-CN'))) {
+      lines.push(`- ${link(categoryIndexPath([...parts, child]), child)}`);
+    }
+  } else {
+    lines.push('## 视频', '');
+    const leafVideos = [...(videosAt.get(key) || [])]
+      .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
+    for (const card of leafVideos) {
+      lines.push(`- ${link(`分类/${card.tree.join('/')}/${card.title}`, card.title)}`);
+    }
+  }
+  lines.push('');
+  writeFileSync(join(dir, `${categoryIndexName(name)}.md`), lines.join('\n'), 'utf8');
 }
 
-const topicCards = new Map();
-for (const card of cards) for (const topic of (card.data.topics || [])) {
-  if (!topicCards.has(topic)) topicCards.set(topic, []);
-  topicCards.get(topic).push(card);
-}
-const desiredTopicPaths = new Set([...topicCards.keys()].map(topic =>
-  resolve(vault, '主题', `${safe(topic)}.md`).toLowerCase()
-));
-for (const entry of readdirSync(join(vault, '主题'), { withFileTypes: true })) {
-  if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-  const path = join(vault, '主题', entry.name);
-  const text = readFileSync(path, 'utf8');
-  if (text.includes('type: topic') && !desiredTopicPaths.has(resolve(path).toLowerCase())) {
-    unlinkSync(path);
+// Old topic pages cross-linked hundreds of videos and overwhelmed the graph.
+// Keep topic text inside each video card, but remove only generated topic notes.
+const topicDir = join(vault, '主题');
+if (existsSync(topicDir)) {
+  for (const entry of readdirSync(topicDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    const path = join(topicDir, entry.name);
+    const text = readFileSync(path, 'utf8');
+    if (text.includes('type: topic')) unlinkSync(path);
   }
-}
-for (const [topic, related] of topicCards) {
-  const lines = ['---', 'type: topic', 'tags: [抖音收藏, 主题]', '---', '', `# ${topic}`, '', '## 相关视频', ''];
-  for (const c of related) lines.push(`- ${link(`分类/${c.tree.join('/')}/${c.title}`, c.title)}`);
-  writeFileSync(join(vault, '主题', `${safe(topic)}.md`), lines.join('\n'), 'utf8');
+  try { rmdirSync(topicDir); } catch { /* Preserve user-created topic notes. */ }
 }
 
 for (const card of cards) {
   const { row, data, tree, title } = card;
   const categoryPath = tree.join(' → ');
   const categoryTag = `分类/${tree.join('/')}`;
-  const topicLinks = (data.topics || []).map(x => link(`主题/${safe(x)}`, x)).join('、') || '暂无';
+  const topicText = (data.topics || []).map(x => String(x).trim()).filter(Boolean).join('、') || '暂无';
+  const leafIndex = link(categoryIndexPath(tree), tree.at(-1));
   const lines = [
     '---', 'type: 视频知识卡', `内容类型: ${data.content_type || '其他'}`, `原视频: "${row.url}"`,
     `整理时间: ${new Date().toISOString()}`, `tags: [抖音收藏, 视频知识卡, ${categoryTag}]`, '---', '',
@@ -178,7 +201,7 @@ for (const card of cards) {
     '### 可以直接做', '', bullets((data.action_items || []).map(x => `[ ] ${x}`)), '',
     detailBlock(data), '',
     '## 闻叙整理', '', `**保留理由：** ${data.retention_reason || '待判断'}`, '', '### 待验证', '', bullets(data.to_verify), '',
-    '## 知识连接', '', `- **分类路径：** ${categoryPath}`, `- **层级标签：** #${categoryTag}`, `- **相关主题：** ${topicLinks}`, `- **知识库：** ${link('首页', '抖音收藏知识库')}`, '',
+    '## 知识连接', '', `- **所属分类：** ${leafIndex}`, `- **分类路径：** ${categoryPath}`, `- **层级标签：** #${categoryTag}`, `- **相关主题：** ${topicText}`, '',
     '## 来源', '', `- [打开抖音原视频](${row.url})`, `- 读取状态：${data.access_status || '未知'}`, `- 内容依据：${(data.evidence || []).join('、') || '未知'}`, ''
   ];
   const dir = join(vault, '分类', ...tree);
@@ -222,11 +245,12 @@ for (const row of rows) {
   const card = cardByUrl.get(canonicalizeVideoUrl(row.url));
   const title = String(card?.title || row.title || '未命名').replace(/\|/g, '｜').replace(/\s+/g, ' ').trim();
   const category = card ? card.tree.join(' → ') : '待分类';
-  const note = card ? link(`分类/${card.tree.join('/')}/${card.title}`, title) : title;
-  ledgerLines.push(`| ${videoId(row.url)} | ${note} | ${category} | [打开](${row.url}) |`);
+  // The ledger is for durable ID deduplication, not knowledge navigation. A
+  // wikilink here would create another all-video hub in Obsidian's graph.
+  ledgerLines.push(`| ${videoId(row.url)} | ${title} | ${category} | [打开](${row.url}) |`);
 }
 writeFileSync(ledgerJson, JSON.stringify(rows, null, 2), 'utf8');
 writeFileSync(ledgerMd, ledgerLines.join('\n'), 'utf8');
 
-console.log(`已写入 ${cards.length} 张视频知识卡、0 张重复目录页、${topicCards.size} 张主题页。`);
+console.log(`已写入 ${cards.length} 张视频知识卡和 ${children.size} 张树状分类索引。`);
 console.log(`视频 ID 索引已保存 ${rows.length} 条记录。`);
