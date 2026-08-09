@@ -83,6 +83,7 @@ const cards = rows.map(row => {
 
 mkdirSync(vault, { recursive: true });
 mkdirSync(join(vault, '分类'), { recursive: true });
+mkdirSync(join(vault, '主题'), { recursive: true });
 mkdirSync(join(vault, '视频'), { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
 
@@ -123,17 +124,52 @@ for (const card of cards) {
 
 const top = [...new Set(cards.map(c => c.tree[0]))];
 const home = [
-  '---', 'type: knowledge-home', 'tags: [抖音收藏, 知识地图]', '---', '',
+  '---', 'type: knowledge-home', '---', '',
   '# 抖音收藏知识库', '',
-  '> 按“首页 → 大类 → 子类 → 视频”逐层浏览。关系图只保留这棵分类树。', '',
-  '## 大类', '',
-  ...top.map(x => `- ${link(categoryIndexPath([x]), x)}`), ''
+  '> 首页只负责四个入口，不汇总任何一条视频。', '',
+  '## 入口', '',
+  `- ${link('分类/分类', '分类')}`,
+  `- ${link('视频/视频', '视频')}`,
+  `- ${link('系统/系统', '系统')}`,
+  `- ${link('主题/主题', '主题')}`, ''
 ];
 writeFileSync(join(vault, '首页.md'), home.join('\n'), 'utf8');
 // README used to duplicate 首页 and link to every video, which turned the
 // Obsidian graph into a giant hub-and-spoke "sea urchin". 首页 is the only root.
 const legacyReadme = join(vault, 'README.md');
 if (existsSync(legacyReadme)) unlinkSync(legacyReadme);
+
+// Four stable section nodes sit directly under 首页. Only 分类 expands into
+// the knowledge tree; the other three are lightweight functional entrances.
+const categoryRoot = [
+  '---', 'type: section-index', 'section: 分类', '---', '', '# 分类', '',
+  `← ${link('首页', '返回首页')}`, '', '## 大类', '',
+  ...top.sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    .map(name => `- ${link(categoryIndexPath([name]), name)}`), ''
+];
+writeFileSync(join(vault, '分类', '分类.md'), categoryRoot.join('\n'), 'utf8');
+
+const videoRoot = [
+  '---', 'type: section-index', 'section: 视频', '---', '', '# 视频', '',
+  `← ${link('首页', '返回首页')}`, '',
+  `当前共有 **${cards.length}** 张视频知识卡。`, '',
+  '> 视频卡按分类存放，请从“分类”入口逐层浏览；这里不逐条建立双链，避免再次形成海胆。', ''
+];
+writeFileSync(join(vault, '视频', '视频.md'), videoRoot.join('\n'), 'utf8');
+
+const systemRoot = [
+  '---', 'type: section-index', 'section: 系统', '---', '', '# 系统', '',
+  `← ${link('首页', '返回首页')}`, '', '## 查重记录', '',
+  `- ${link('系统/视频ID索引/已收藏视频ID', '已收藏视频 ID')}`, ''
+];
+writeFileSync(join(vault, '系统', '系统.md'), systemRoot.join('\n'), 'utf8');
+
+const topicRoot = [
+  '---', 'type: section-index', 'section: 主题', '---', '', '# 主题', '',
+  `← ${link('首页', '返回首页')}`, '',
+  '> 主题保留在每张视频卡的文字属性中，不自动生成跨分类双链。你自己写的主题笔记仍会保留在这里。', ''
+];
+writeFileSync(join(vault, '主题', '主题.md'), topicRoot.join('\n'), 'utf8');
 
 // Folders are invisible in Obsidian's graph, so every category level gets one
 // small index note. Each note links only to its parent and direct children (or
@@ -149,11 +185,11 @@ for (const [key, childNames] of children) {
   if (existsSync(legacyFile)) unlinkSync(legacyFile);
 
   const parentLink = parts.length === 1
-    ? link('首页', '返回首页')
+    ? link('分类/分类', '返回分类')
     : link(categoryIndexPath(parts.slice(0, -1)), `返回${parts.at(-2)}`);
   const lines = [
     '---', 'type: category-index', `category_path: "${parts.join(' / ')}"`,
-    'tags: [抖音收藏, 分类索引]', '---', '', `# ${name}`, '',
+    '---', '', `# ${name}`, '',
     `← ${parentLink}`, '',
   ];
   if (childNames.size > 0) {
@@ -183,7 +219,7 @@ if (existsSync(topicDir)) {
     const text = readFileSync(path, 'utf8');
     if (text.includes('type: topic')) unlinkSync(path);
   }
-  try { rmdirSync(topicDir); } catch { /* Preserve user-created topic notes. */ }
+  // Keep the folder and its section index, plus any user-created topic notes.
 }
 
 for (const card of cards) {
@@ -194,14 +230,14 @@ for (const card of cards) {
   const leafIndex = link(categoryIndexPath(tree), tree.at(-1));
   const lines = [
     '---', 'type: 视频知识卡', `内容类型: ${data.content_type || '其他'}`, `原视频: "${row.url}"`,
-    `整理时间: ${new Date().toISOString()}`, `tags: [抖音收藏, 视频知识卡, ${categoryTag}]`, '---', '',
+    `整理时间: ${new Date().toISOString()}`, `分类路径: "${categoryPath}"`, '---', '',
     `# ${title}`, '', `> [!summary] 一句话说清楚\n> ${data.summary || '暂无摘要'}`, '',
     '## 这条视频讲了什么', '', bullets(data.key_points), '',
     '## 对我有什么用', '', `**适合：** ${data.suitable_for || '未提取'}`, '', `**不适合：** ${data.not_suitable_for || '未提取'}`, '',
     '### 可以直接做', '', bullets((data.action_items || []).map(x => `[ ] ${x}`)), '',
     detailBlock(data), '',
     '## 闻叙整理', '', `**保留理由：** ${data.retention_reason || '待判断'}`, '', '### 待验证', '', bullets(data.to_verify), '',
-    '## 知识连接', '', `- **所属分类：** ${leafIndex}`, `- **分类路径：** ${categoryPath}`, `- **层级标签：** #${categoryTag}`, `- **相关主题：** ${topicText}`, '',
+    '## 知识连接', '', `- **所属分类：** ${leafIndex}`, `- **分类路径：** ${categoryPath}`, `- **分类编号：** \`${categoryTag}\``, `- **相关主题：** ${topicText}`, '',
     '## 来源', '', `- [打开抖音原视频](${row.url})`, `- 读取状态：${data.access_status || '未知'}`, `- 内容依据：${(data.evidence || []).join('、') || '未知'}`, ''
   ];
   const dir = join(vault, '分类', ...tree);
@@ -235,7 +271,7 @@ function videoId(url) {
 }
 const cardByUrl = new Map(cards.map(card => [canonicalizeVideoUrl(card.row.url), card]));
 const ledgerLines = [
-  '---', 'type: processed-video-index', 'tags: [抖音收藏, 视频ID索引, 系统]', '---', '',
+  '---', 'type: processed-video-index', '---', '',
   '# 已收藏并处理的视频 ID', '',
   '> 这是查重目录。清除电脑上的处理缓存后，VideoMind 会从这里恢复记录并跳过相同 ID。', '',
   `当前有效记录：**${rows.length}** 条`, '',

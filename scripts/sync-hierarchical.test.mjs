@@ -59,11 +59,21 @@ describe('hierarchical Obsidian sync', () => {
     assert.equal(existsSync(join(vault, '主题', '我的笔记.md')), true);
 
     const home = readFileSync(join(vault, '首页.md'), 'utf8');
-    assert.match(home, /\[\[分类\/生活\/「生活」\|生活\]\]/);
+    assert.match(home, /\[\[分类\/分类\|分类\]\]/);
+    assert.match(home, /\[\[视频\/视频\|视频\]\]/);
+    assert.match(home, /\[\[系统\/系统\|系统\]\]/);
+    assert.match(home, /\[\[主题\/主题\|主题\]\]/);
+    assert.equal((home.match(/\[\[/g) || []).length, 4);
     assert.doesNotMatch(home, /清洁视频|英剧视频/);
 
+    const categoryRoot = readFileSync(join(vault, '分类', '分类.md'), 'utf8');
+    assert.match(categoryRoot, /\[\[分类\/生活\/「生活」\|生活\]\]/);
+    assert.equal(existsSync(join(vault, '视频', '视频.md')), true);
+    assert.equal(existsSync(join(vault, '系统', '系统.md')), true);
+    assert.equal(existsSync(join(vault, '主题', '主题.md')), true);
+
     const life = readFileSync(join(vault, '分类', '生活', '「生活」.md'), 'utf8');
-    assert.match(life, /\[\[首页\|返回首页\]\]/);
+    assert.match(life, /\[\[分类\/分类\|返回分类\]\]/);
     assert.match(life, /\[\[分类\/生活\/家庭管理\/「家庭管理」\|家庭管理\]\]/);
     assert.match(life, /\[\[分类\/生活\/休闲娱乐\/「休闲娱乐」\|休闲娱乐\]\]/);
 
@@ -75,6 +85,7 @@ describe('hierarchical Obsidian sync', () => {
     const video = readFileSync(join(vault, '分类', '生活', '家庭管理', '清洁', '清洁视频.md'), 'utf8');
     assert.match(video, /所属分类.*\[\[分类\/生活\/家庭管理\/清洁\/「清洁」\|清洁\]\]/);
     assert.doesNotMatch(video, /\[\[首页|\[\[主题\//);
+    assert.doesNotMatch(video, /^tags:/m);
 
     const ledger = readFileSync(join(vault, '系统', '视频ID索引', '已收藏视频ID.md'), 'utf8');
     assert.doesNotMatch(ledger, /\[\[分类\//);
