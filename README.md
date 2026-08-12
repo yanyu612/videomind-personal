@@ -79,6 +79,8 @@
 | 多模态视频理解 | ✅ | 豆包/Kimi 读视频画面；B 站自动取 CC 字幕喂给 AI |
 | **本次 API 成本** | **$0** | 只描述该次实测，不承诺第三方服务长期免费 |
 
+不登录任何平台也可以先查看一份[脱敏示例知识卡](examples/sample-knowledge-card.md)，了解 ReelLoom 的本地输出结构。
+
 ## 🏗️ 核心架构
 
 ```
@@ -441,6 +443,8 @@ When you are already logged into supported services, the local Agent can coordin
 | Auto-categorized | 8 categories |
 | Synced to Lexiang KB | 6 pages |
 | **API cost in this run** | **$0**; not a promise of permanent third-party pricing |
+
+See a [sanitized example knowledge card](examples/sample-knowledge-card.md) to inspect the local output format without signing in to any platform.
 
 > The 76-item run produced usable output for every saved item. Processing records include retries and multiple output levels, so raw record counts are not presented as a success percentage.
 

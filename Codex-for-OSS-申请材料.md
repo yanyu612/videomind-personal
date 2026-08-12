@@ -8,16 +8,14 @@
 
 ## 结论
 
-ReelLoom 已具备真实代码、公开许可证、持续提交、CI 和端到端使用记录，
-但不建议在申请前最后一次公开修整尚未合并、尚无 GitHub Release 时立刻提交。
+ReelLoom 已具备真实代码、公开许可证、持续提交、CI、正式 Release 和端到端使用记录。
+技术与公开资料层面已可提交；主要弱项是社区采用量仍小，申请时应如实说明。
 
 建议提交门槛：
 
-1. 合并本轮项目身份与复现文档修正；
-2. CI 再次通过；
-3. 发布首个正式 GitHub Release（建议 `v0.2.0`）；
-4. GitHub 个人资料补充公开显示名称与一句维护者简介；
-5. 申请材料只使用下列真实数据，不虚构采用量。
+1. GitHub 个人资料补充公开显示名称与一句维护者简介；
+2. 宝宝本人核对姓名、ChatGPT 邮箱和 OpenAI organization ID；
+3. 申请材料只使用下列真实数据，不虚构采用量。
 
 ## 项目简介（中文）
 
@@ -55,15 +53,15 @@ and documents the maintained fork's distinct direction and changes.
 
 - Public repository：是
 - License：MIT
-- Git commits：48
+- Git commits：50（含 ReelLoom 公开身份与示例文档提交；申请前再次核对）
 - Automated tests：369 passed, 0 failed（本机完整测试）
 - GitHub Actions：最近连续成功；早期失败记录保留，未伪装
 - GitHub Stars：1
 - Forks：0
 - Issues：0
 - Pull requests：0
-- GitHub Releases：0（申请前需补）
-- Tags：2 个个人稳定标签
+- GitHub Releases：1（`v0.2.0`）
+- Tags：3（含 `v0.2.0`）
 - 真实端到端记录：一次 76 条抖音收藏整理产生可用知识输出
 - Contributors：2（GitHub API 统计）
 
@@ -145,11 +143,11 @@ features are not presented as shipped.
 
 ## 提交前仍需补齐
 
-- [ ] 本轮文档修整提交并推送到 `yanyu612/reelloom`
-- [ ] GitHub Actions 对新提交通过
-- [ ] 建立首个正式 Release，并写清已验证范围和已知限制
+- [x] 本轮文档修整提交并推送到 `yanyu612/reelloom`
+- [x] GitHub Actions 对修整提交通过
+- [x] 建立首个正式 Release，并写清已验证范围和已知限制
 - [ ] GitHub 个人资料增加公开显示名称和简短 Bio
-- [ ] README 增加一份脱敏示例输出或截图
+- [x] README 增加一份脱敏示例输出
 - [ ] 重新核对 Star、commit、tests、contributors 等数字
 - [ ] 宝宝本人填写姓名、ChatGPT 邮箱和 OpenAI organization ID
 
