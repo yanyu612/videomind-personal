@@ -1,4 +1,4 @@
-# VideoMind Implementation Status
+# ReelLoom Implementation Status
 
 > This document tracks the **real** implementation status of every module.
 > README may describe planned features — this file tells you what actually works.

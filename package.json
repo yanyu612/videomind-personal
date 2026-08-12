@@ -1,7 +1,7 @@
 {
-  "name": "videomind",
+  "name": "reelloom",
   "version": "0.2.0",
-  "description": "VideoMind — Turn your video favorites into a living knowledge base, zero API cost.",
+  "description": "ReelLoom — Turn video favorites into a local-first, searchable knowledge base.",
   "main": "src/index.mjs",
   "type": "module",
   "scripts": {
@@ -25,11 +25,11 @@
     "zero-cost",
     "multimodal"
   ],
-  "author": "VideoMind Contributors",
+  "author": "ReelLoom Contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jiayi-hu/videomind"
+    "url": "https://github.com/yanyu612/reelloom.git"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

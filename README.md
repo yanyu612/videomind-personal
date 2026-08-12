@@ -1,12 +1,17 @@
 <div align="center">
 
-# 🧠 VideoMind
+# 🧵 ReelLoom
 
 ### 让你的收藏夹学会思考
 
-**Zero API Cost · Turn Video Favorites into a Living Knowledge Base**
+**Local-first · Turn Video Favorites into a Living Knowledge Base**
 
 [English](#english) | [中文](#中文)
+
+> **项目来源与维护说明**：ReelLoom 基于 MIT 许可的
+> [HU1234top/videomind](https://github.com/HU1234top/videomind) 发展而来，
+> 现由本仓库独立维护，重点投入可恢复的抖音→Obsidian 工作流、分层分类、
+> 本地知识输出与恢复工具。完整说明见 [NOTICE.md](NOTICE.md)。
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-blue.svg)](https://nodejs.org)
@@ -23,13 +28,13 @@
 
 ## 🚀 3 句话电梯演讲
 
-1. **做什么**：把抖音/B站/YouTube 收藏夹里的几百个教程视频，自动转成**可检索、可链接、可复用的知识库**
-2. **怎么做到**：本地 Agent 用 Playwright 操控你已登录的浏览器，把视频喂给**免费网页 AI**（豆包/Kimi/Gemini/Claude），**不下载视频、不付费 API**
-3. **为什么**：传统方案要么下载不了（抖音防下载），要么 $1-5/100 视频（GPT-4o Vision），要么要 GPU（本地 Whisper+LLaVA）—— VideoMind = **零下载 + 零 API 费用 + 零 GPU**
+1. **做什么**：把抖音/B站收藏夹里的教程视频，自动转成**可检索、可链接、可复用的知识库**
+2. **怎么做到**：本地 Agent 用 Playwright 协调你已授权的浏览器会话，把页面信息交给可用 Analyzer，再输出本地 Markdown / Obsidian 知识
+3. **为什么**：传统方案往往需要保存视频、调用付费 API 或使用本地 GPU；ReelLoom 优先复用用户已有的浏览器会话与网页端额度，在一次 76 个视频的实测中没有产生 API 费用
 
 ## 🎯 一句话定位
 
-把抖音/B站/YouTube 收藏夹里的视频，**零 API 成本**自动交给Web版多模态 AI（豆包、Kimi、Gemini、Claude 等）分析理解，最终沉淀为可检索、可关联、可复用的结构化知识库。
+把抖音/B站收藏条目通过本地 Agent 与用户有权使用的 Analyzer 整理成可检索、可关联、可复用的 Markdown / Obsidian 知识；第三方服务的价格、额度与权限以其当前规则为准。
 
 ## 🤔 为什么做这个项目
 
@@ -39,43 +44,40 @@
 - 想学 AI / 编程 / 设计，收藏了一大堆，不知道从哪开始
 - 视频太多，逐个看要花几十个小时
 
-## 🚫 何时不用 VideoMind
+## 🚫 何时不用 ReelLoom
 
 - 你只有 5-10 个视频 —— 手动看更快
-- 你需要**实时**视频理解 —— VideoMind 是批量处理
-- 你需要**逐字稿**（word-by-word 转录）—— VideoMind 用 Web AI 理解，**不保证字字对应**
+- 你需要**实时**视频理解 —— ReelLoom 是批量处理
+- 你需要**逐字稿**（word-by-word 转录）—— ReelLoom 用 Web AI 理解，**不保证字字对应**
 - 你无法在本地跑浏览器 —— Playwright + CDP :9222 是硬性要求
 
 ## 🆚 传统方案的痛点
 
 | 步骤 | 痛点 |
 |------|------|
-
-| 步骤 | 痛点 |
-|------|------|
 | 下载视频 | 抖音有**防下载保护**，大量视频无法直接保存到本地 |
 | 转录音频 | Whisper 本地转录需 GPU 算力；云端 API 按时长收费 |
-| 分析内容 | GPT-4o Vision 等多模态 API **限流+按次收费**，100 个视频成本 $1-5 |
+| 分析内容 | 云端与网页端模型的定价、额度和限制会变化 |
 | 整理入库 | 人工手动分类、写摘要，效率极低 |
 
-**VideoMind 的解决方案：不下载视频，不调付费 API，零成本完成全流程。**
+**ReelLoom 的方案：不保存原视频，优先使用用户已有的网页端 AI 权限完成分析，并把结果留在本地。**
 
-核心思路：你已经在浏览器里登录了抖音和豆包/Kimi/Gemini——让 Agent 通过浏览器自动化，直接把视频信息喂给这些**免费网页 AI**，它们能看懂视频、读懂评论、总结内容，而且不限流、不收费。
+核心思路：用户在浏览器中登录目标平台后，由本地 Agent 辅助完成采集、分析和结构化整理。网页服务的可用额度、频率限制和使用条款由各服务商决定，ReelLoom 不承诺无限额度。
 
 ## 🏆 已验证成果
 
-> 这些数据来自一次真实的端到端跑通（2026-06，76-77 个抖音「skills」收藏夹视频）。
+> 这些数据来自一次真实的端到端跑通（2026-06，76 个抖音「skills」收藏条目；处理记录包含重试）。
 
 | 指标 | 数值 | 备注 |
 |------|------|------|
 | 抖音「skills」收藏夹抓取 | **76 个视频** | 实测通过 |
-| 豆包 AI 深度分析 | **77 / 76 = 100% 覆盖** | 49 个获得 10 维度结构化输出，28 个为增强基础（评论+标签） |
+| 豆包 AI 分析 | **76 个收藏条目形成可用输出** | 处理记录包含深度结果、增强基础结果及重试；不把重试条数当作成功率 |
 | 评论数据提取 | 71 条 | 由豆包分析阶段附带产出 |
 | AI 技术方向自动筛选 | 68 个 | 关键词过滤（详见 `knowledge-builder.mjs`） |
 | 自动 8 类分类 | ✅ | 关键词匹配 + 防漏兜底（每个视频必落入分类） |
 | 本地 Markdown 输出 | ✅ | YAML frontmatter + Obsidian wikilinks |
 | 多模态视频理解 | ✅ | 豆包/Kimi 读视频画面；B 站自动取 CC 字幕喂给 AI |
-| **总 API 成本** | **$0** | 全程浏览器自动化 + 免费网页 AI |
+| **本次 API 成本** | **$0** | 只描述该次实测，不承诺第三方服务长期免费 |
 
 ## 🏗️ 核心架构
 
@@ -83,7 +85,7 @@
 Local Agent (编排调度)
     │
     ▼
-Collector: 抖音/B站/YouTube Adapter
+Collector: 抖音/B站 Adapter（YouTube 仍在规划）
     │  ┌─ 防下载保护？直接在浏览器里看，不用下载
     │  ├─ 标签/话题系统？自动提取 #AI #编程 等标签
     │  ├─ 评论/弹幕？抓取前 N 条作为分析素材
@@ -98,32 +100,25 @@ Collector: 抖音/B站/YouTube Adapter
          │
          ▼
 Analyzer: 豆包/Kimi/Gemini/Claude Web-SubAgent
-         │  ┌─ 网页端免费额度，不限流
+         │  ┌─ 使用用户可用的网页端额度与配额
          │  ├─ 多模态理解：看封面+读评论+分析转写
          │  └─ 10维度技能聚焦分析框架
          ▼
 Builder: 去重/标签(8类)/技能点/知识图谱
          │
          ▼
-Sink: 乐享/Notion/Obsidian/Markdown
+Sink: Obsidian/Markdown（其他 Sink 以 STATUS 为准）
 ```
 
-## 💡 零成本原理
+## 💡 成本与依赖模型
 
-| 方案 | 100视频成本 | 限制 |
-|------|-----------|------|
-| GPT-4o Vision API | $1-5 | 限流 + 按次收费 |
-| Gemini Pro Vision API | $0.5-2 | 限流 + 需 API Key |
-| 本地 Whisper + LLaVA | GPU 费用 | 需 GPU + 转录慢 |
-| 下载视频 → 转音频 → API | 视频可能无法下载 | 抖音防下载保护 |
-| **VideoMind（网页端 AI）** | **$0** | **无限流 · 无需下载** |
+ReelLoom 本身开源免费，但运行成本取决于用户选择的浏览器服务、账号额度或本地模型。
+仓库记录的一次 76 条收藏实测没有产生 API 费用，这不是对第三方服务价格的长期承诺。
 
-**怎么做到零成本的？**
-
-1. **不下载视频** — 抖音有防下载保护，很多视频根本下载不了。VideoMind 直接在浏览器里操作，跟人看视频一样，绕过下载限制。
+1. **不保存原视频** — ReelLoom 在用户已登录的浏览器会话中处理页面信息，减少本地媒体存储与转码需求。
 2. **复用你已登录的浏览器** — Chrome CDP :9222 连接真实浏览器，跳过登录和 Cookie 管理。
-3. **利用网页版免费额度** — 豆包/Kimi/Gemini/Claude 都有网页端免费使用额度，且**不限流**。Playwright 自动化操作 = 免费调用多模态能力。
-4. **本地 Agent 只做调度** — 规划任务、组装 prompt、合并结果，深度推理全交给免费 Web AI。
+3. **利用用户已有的网页端权限** — 是否免费、可用多少以及能否自动化，取决于对应服务当时的条款和配额。
+4. **本地 Agent 负责调度与落库** — 规划任务、组装 prompt、合并结果，并把知识文件保存在本地。
 
 > 借鉴了 [AgentChat](https://github.com/) 的 Web-SubAgent 思想，但垂直聚焦于「视频 → 知识库」场景。
 
@@ -133,38 +128,31 @@ Sink: 乐享/Notion/Obsidian/Markdown
 
 > 你抖音收藏了 200 个 AI/编程/设计教程视频，但从来没系统看过。想学"Agent 架构"时不知道从哪开始。
 >
-> → VideoMind 跑一遍：76 个视频变成 76 个**结构化技能卡片**，自动分到 8 个类别。搜 "Agent" 直接定位到 3 个相关视频，看完就掌握。
+> → ReelLoom 跑一遍：76 个视频变成 76 个**结构化技能卡片**，自动分到 8 个类别，可按关键词回到相关条目继续学习。
 
 **场景 2：自媒体的「选题灵感库」**
 
 > 你想做 AI 教程视频，需要看同类博主最近在讲什么。手动翻 100 个视频太慢。
 >
-> → VideoMind 抓评论 + 标题 + 标签，**自动聚类热门话题**。直接看到"最近 30 天讲 Claude Code 的有 12 个视频"。
+> → ReelLoom 整理页面可见的标题、标签和允许处理的评论数据，形成可检索的主题线索。
 
 **场景 3：研究者的「文献综述替代」**
 
-> 你研究 AI Agent 趋势，需要看 B 站/YouTube 上中英文相关视频的观点。
+> 你研究 AI Agent 趋势，需要整理 B 站等视频来源中的观点。
 >
-> → VideoMind 跑双 AI（豆包 + Kimi）做**字段级投票**，标 confidence + conflicts，**比单一 AI 准**。
+> → ReelLoom 可用双 Analyzer 做**字段级仲裁**，保留 confidence 与 conflicts，方便人工复核分歧。
 
-## 🤔 VideoMind vs 同类工具
+## 🤔 ReelLoom 的边界与差异
 
-| 维度 | VideoMind | NotebookLM | 飞书妙记 | 录屏+Whisper | GPT-4o Vision API |
-|------|-----------|------------|----------|--------------|-------------------|
-| **100 视频成本** | $0 | 免费（需 Google 账号） | 免费（限 10 视频/月） | $0（要 GPU） | $1-5 |
-| **支持平台** | 抖音/B站/YouTube | 仅 YouTube | 仅会议录音 | 任意 | 任意 |
-| **无需下载视频** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **多 AI 共识** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **结构化技能分析** | ✅ (10 维度) | ❌（仅摘要） | ❌（仅摘要） | ❌ | ❌ |
-| **离线可跑** | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **开源可改** | ✅ MIT | ❌ | ❌ | ✅ | ❌ |
-
-**VideoMind 的差异化**：**多平台 + 零下载 + 多 AI 共识 + 结构化技能分析** —— 这 4 个能力组合，NotebookLM/飞书妙记都没有。
+- 输出保存在本地 Markdown / Obsidian，而不是只留在在线聊天里。
+- 把视频当作可学习的技能单元，输出结构化字段，不只生成一段摘要。
+- 支持断点续跑、分层分类、失败恢复和 Analyzer 仲裁。
+- 当前重点是抖音→Obsidian；其他平台能力以 [STATUS](docs/STATUS.md) 为准，不把规划写成已完成。
 
 ## ❓ FAQ（AI 搜索常抓）
 
-### VideoMind 真的免费吗？
-**完全免费**。使用豆包/Kimi/Gemini/Claude 的网页版免费额度，不需要 API Key，不需要付费账户。Playwright 自动化操作 = 免费调用多模态能力。
+### ReelLoom 一定免费吗？
+ReelLoom 本身开源免费。一次 76 条收藏的实测没有产生 API 费用，但网页服务的免费额度、账号要求和自动化政策会变化，项目不承诺第三方服务永久免费。
 
 ### 会违反抖音/B站 ToS 吗？
 **仅用于个人学习研究**，遵守各平台 ToS：
@@ -175,16 +163,16 @@ Sink: 乐享/Notion/Obsidian/Markdown
 详见 [`⚠️ 负责使用`](#-负责使用) 章节。
 
 ### 需要 GPU 吗？
-**不需要**。本地 Agent 只做调度（Playwright + 浏览器自动化），深度推理全部交给免费 Web AI。如果用本地 Whisper 转录才需要 GPU，但 VideoMind 默认**不下载视频、不转录**。
+默认流程不需要 GPU。本地 Agent 负责调度与整理，分析能力来自用户选择且有权使用的网页服务；若改用本地转录或视觉模型，则硬件需求会变化。
 
 ### 抓 100 个视频要多久？
 实测 76 视频约 40 分钟（含 AI 分析时间）。如果 AI 分析是瓶颈，可调 `--analyze-mode parallel` 用多 AI 并行，**通常快 2-3 倍**。
 
 ### 跟别的 AI 总结工具有什么区别？
-**核心差异**：VideoMind 把每个视频当作**一个可学习的技能单元**，输出 10 维度结构化（技能名称/等级/前置知识/学习路径等），而不是简单摘要。这套框架专为"收藏夹 = 技能库"场景设计。
+**核心差异**：ReelLoom 把每个视频当作**一个可学习的技能单元**，输出 10 维度结构化（技能名称/等级/前置知识/学习路径等），而不是简单摘要。这套框架专为“收藏夹 = 技能库”场景设计。
 
 ### 我只会用 Chrome，不会用命令行怎么办？
-VideoMind 是 CLI 工具，需要 `node src/cli.mjs` 启动。门槛是 Node.js 基础 + 会看终端输出。**没有 GUI**（Phase C 在规划 Web UI）。
+ReelLoom 是 CLI 工具，需要 `node src/cli.mjs` 启动。门槛是 Node.js 基础 + 会看终端输出。**目前没有 GUI**。
 
 ### 可以商用吗？
 **MIT License**，可商用。但你**要为内容合规负责**（见 ToS 章节）。
@@ -200,8 +188,8 @@ VideoMind 是 CLI 工具，需要 `node src/cli.mjs` 启动。门槛是 Node.js 
 ### 安装
 
 ```bash
-git clone https://github.com/HU1234top/videomind.git
-cd videomind
+git clone https://github.com/yanyu612/reelloom.git
+cd reelloom
 npm install
 ```
 
@@ -306,16 +294,16 @@ LOG_LEVEL=silent node src/cli.mjs analyze
 
 ## 🎯 抖音收藏夹的特殊能力
 
-抖音是 VideoMind 第一个验证的平台，因为它有几个独特挑战和优势：
+抖音是 ReelLoom 第一个验证的平台，因为它有几个独特挑战和优势：
 
-### 绕过防下载保护
-抖音视频有防下载机制，传统方案需要用第三方工具或录屏才能获取视频文件。VideoMind **不下载视频**，直接在浏览器里让 AI「看」视频——跟人类观看方式完全一样。
+### 无需保存原视频
+ReelLoom 面向个人知识整理场景，在用户已登录的浏览器会话中读取页面可见信息并完成分析编排，不把原视频文件纳入知识库。
 
 ### 标签/话题系统
-抖音视频自带 `#AI` `#编程` `#开源工具` 等话题标签，VideoMind 自动提取这些标签作为初始分类依据，结合 AI 分析进行二次归类。
+抖音视频自带 `#AI` `#编程` `#开源工具` 等话题标签，ReelLoom 使用页面可见标签作为初始分类依据，结合分析结果进行二次归类。
 
 ### 评论数据采集
-抖音评论区往往包含用户的真实反馈、补充说明、甚至作者本人的回复。VideoMind 抓取前 N 条评论作为 AI 分析的辅助素材——一条评论可能比视频标题更有价值。
+在用户有权处理且页面允许访问时，ReelLoom 可把部分页面可见评论作为分析辅助素材；默认限速并在出现验证码时停止。
 
 ### 语音转文字
 豆包等网页 AI 可以直接理解视频中的语音内容，无需本地 Whisper 转录。
@@ -335,7 +323,7 @@ LOG_LEVEL=silent node src/cli.mjs analyze
 | Collector | 🇨🇳 抖音 + 🎬 B 站 | 抖音收藏夹批量抓取（76 视频实测）；B 站 CC 字幕自动摄入 |
 | Analyzer | 🧠 双 AI 路由 + 共识仲裁 | 豆包 + Kimi 真实实现；AnalyzerRouter 提供 sequential + consensus 双模式（consensus 字段级投票，置信度 + 冲突明细） |
 | Builder | KnowledgeBuilder | 8 类自动分类（防漏兜底）+ Levenshtein 去重（阈值 0.6） |
-| Sink | Markdown / Obsidian / 🟪 乐享 / Notion | Markdown 含 frontmatter + wikilinks；Obsidian 含 Vault 结构；乐享走 WorkBuddy MCP |
+| Sink | Markdown / Obsidian | Markdown 含 frontmatter + wikilinks；Obsidian 含 Vault 结构；外部同步实验不算核心开源能力 |
 | Checkpoint | SQLite | 断点续传：跑 76 视频中途崩了下次自动从断点继续（Phase A Task 1） |
 | 自适应限流 | Token Bucket + 5xx/CAPTCHA 退避 | 实测能稳定跑 1000+ 视频不触发风控（Phase A Task 5） |
 | 结构化日志 | pino + requestId | 每条记录可按 batch / videoId / analyzer 追溯（Phase A Task 3） |
@@ -370,65 +358,25 @@ LOG_LEVEL=silent node src/cli.mjs analyze
 
 ## 🗺️ Roadmap（简版，详情见 [ROADMAP.md](ROADMAP.md)）
 
-### Phase A: 固本（当前阶段）
-
-- [x] **Task 5**: 响应式 rate limiting — `src/core/rate-limiter.mjs`（29 单测通过）
-- [ ] **Task 1**: SQLite checkpoint 断点续传
-- [ ] **Task 2**: 采集层 selector 视觉 fallback（截图+OCR）
-- [ ] **Task 3**: pino/winston 结构化日志 + requestId
-- [ ] **Task 4**: .env + zod 配置校验
-- [ ] **Task 6**: 修复"其他"分类 bug（`keywords: []` 永远 false）
-- [ ] **Task 7**: 核心路径测试（mock analyze → build → markdown）
-- [ ] **Task 8**: 豆包结构化 JSON 输出 + 正则降级
-
-### Phase B: 增效
-
-- [ ] Kimi / Gemini / Claude Analyzer
-- [ ] B 站 / YouTube Collector
-- [ ] 任务优先级队列 + 动态并发
-- [ ] 第二个 AI 交叉验证 + 字段置信度评分
-
-### Phase C: 做深
-
-- [ ] 多级标签（领域→技术→工具）
-- [ ] 知识图谱（邻接表/图数据库 + 可执行学习路径）
-- [ ] 本地 Web UI（搜索 + 技能地图）
-
-### Phase D: 开源
-
-- [ ] .github/workflows CI
-- [ ] CONTRIBUTING.md
-- [ ] npm 发布
+- ✅ 已完成：断点续跑、结构化日志、配置校验、核心路径测试、Obsidian Sink、自适应限流。
+- 🚧 正在增强：抖音→Obsidian 分层整理、失败恢复、B 站采集覆盖与 Analyzer 路由。
+- 📋 后续计划：YouTube、更多 Analyzer、知识图谱与本地 Web UI。
+- 📌 每项能力的真实状态以 [docs/STATUS.md](docs/STATUS.md) 为准。
 
 ## 📁 项目结构
 
-```
-videomind/
-├── src/
-│   ├── core/
-│   │   ├── web-agent.mjs      # 浏览器自动化核心
-│   │   ├── orchestrator.mjs   # 编排调度（串行/并行）
-│   │   └── schema.mjs         # 统一数据模型
-│   ├── collectors/
-│   │   ├── douyin.mjs         # 抖音（已验证：防下载绕过+标签+评论）
-│   │   └── bilibili.mjs       # B站（规划：弹幕+分P）
-│   │   └── youtube.mjs        # YouTube（规划：CC字幕+Chapters）
-│   ├── analyzers/
-│   │   ├── doubao.mjs         # 豆包 Web-SubAgent（已验证）
-│   │   ├── kimi.mjs           # Kimi（规划）
-│   │   └── gemini.mjs         # Gemini（规划）
-│   │   └── claude.mjs         # Claude（规划）
-│   ├── builders/
-│   │   └── knowledge-builder.mjs  # 分类+去重+技能图谱
-│   ├── sinks/
-│   │   ├── markdown.mjs       # Markdown 输出
-│   │   └── lexiang.mjs        # 乐享 Connector
-│   └── cli.mjs                # 命令行入口
-├── docs/
-│   ├── architecture.md        # 架构详解
-│   └── zero-cost-guide.md     # 零成本原理
+```text
+reelloom/
+├── src/collectors/       # 抖音与 B 站采集
+├── src/analyzers/        # 豆包、Kimi 等 Analyzer
+├── src/builders/         # 分类、去重与知识构建
+├── src/core/             # 配置、断点、路由、限流与日志
+├── src/sinks/            # Markdown / Obsidian 输出
+├── scripts/              # 批处理、恢复与诊断工具
+├── selectors/            # 页面选择器配置
+├── docs/                 # 架构、状态与使用说明
+├── .github/workflows/    # CI
 ├── package.json
-├── LICENSE
 └── README.md
 ```
 
@@ -459,7 +407,7 @@ videomind/
 
 ## 🎯 One-Line Pitch
 
-Turn your Douyin/Bilibili/YouTube video favorites into a searchable, linkable, reusable knowledge base — **at zero API cost** — by letting a local Agent orchestrate browser automation to feed videos to free web-based multimodal AI (Doubao, Kimi, Gemini, Claude).
+Turn your Douyin/Bilibili video favorites into a searchable, linkable, reusable knowledge base with a local Agent, browser-assisted analysis, and Markdown/Obsidian output.
 
 ## 🤔 Why This Project
 
@@ -475,49 +423,46 @@ Your favorites are gathering dust.
 |------|---------|
 | Download videos | Douyin has **download protection** — many videos can't be saved locally |
 | Transcribe audio | Whisper requires GPU; cloud APIs charge per minute |
-| Analyze content | GPT-4o Vision etc. are **rate-limited + pay-per-call**, $1-5 for 100 videos |
+| Analyze content | Cloud and web model pricing, quotas, and limits can change |
 | Organize into KB | Manual classification and summarization is painfully slow |
 
-**VideoMind's solution: No downloads, no paid APIs, zero cost, full pipeline.**
+**ReelLoom's approach: no local video archive, browser-assisted analysis, and local-first knowledge output.**
 
-You're already logged into Douyin and Doubao/Kimi/Gemini in your browser. Let the Agent automate browser interactions to feed video info directly to these **free web AIs** — they can understand videos, read comments, summarize content, with no rate limits and zero cost.
+When you are already logged into supported services, the local Agent can coordinate authorized browser interactions and turn the resulting analysis into local knowledge files. Service availability, pricing, quotas, and automation permissions remain controlled by each provider.
 
 ## 🏆 Verified Results
 
 | Metric | Value |
 |--------|-------|
 | Douyin "skills" collection scraped | **76 videos** |
-| Doubao deep analysis | **77/76 = 100% coverage** (49 deep + 28 enhanced basic) |
+| Doubao analysis | **76 saved items produced usable output**; processing records include retries and multiple result levels |
 | Comments extracted | 71 |
 | Speech-to-text obtained | 69 |
 | Auto-categorized | 8 categories |
 | Synced to Lexiang KB | 6 pages |
-| **Total API cost** | **$0** |
+| **API cost in this run** | **$0**; not a promise of permanent third-party pricing |
 
-> ⚠️ 100% coverage: all 76 videos were analyzed — 49 with 10-dimension deep structured output, 28 with enhanced basic analysis (comments + transcript + tags). **No video was skipped.**
+> The 76-item run produced usable output for every saved item. Processing records include retries and multiple output levels, so raw record counts are not presented as a success percentage.
 
-## 💡 Zero Cost Principle
+## 💡 Cost and dependency model
 
-| Approach | Cost for 100 videos | Limitation |
-|----------|-------------------|------------|
-| GPT-4o Vision API | $1-5 | Rate-limited + pay-per-call |
-| Gemini Pro Vision API | $0.5-2 | Rate-limited + requires API key |
-| Local Whisper + LLaVA | GPU cost | Needs GPU + slow transcription |
-| Download → Transcribe → API | Videos may be un-downloadable | Douyin download protection |
-| **VideoMind (web AI)** | **$0** | **No rate limits · No downloads needed** |
+ReelLoom itself is open source. Runtime cost depends on the browser services,
+account quotas, APIs, or local models selected by the user. One documented
+76-item run incurred no API cost; this is not a promise about future
+third-party pricing or availability.
 
 **How?**
 
-1. **No video downloads** — Douyin blocks downloads. VideoMind operates inside the browser, just like a human watching the video.
+1. **No local video archive** — ReelLoom works with information available in the user's authenticated browser session and keeps structured knowledge output locally.
 2. **Reuse your logged-in browser** — Chrome CDP :9222 connects to your real browser session.
-3. **Leverage free web AI tiers** — Doubao/Kimi/Gemini/Claude all offer free web usage with no rate limits. Playwright automates them as callable SubAgents.
-4. **Local Agent only orchestrates** — Task planning, prompt assembly, result merging — deep reasoning goes to free Web AI.
+3. **Use authorized web AI access** — availability, quotas, pricing, and automation permissions depend on each provider's current terms.
+4. **Local Agent orchestrates** — Task planning, prompt assembly, result merging, and local knowledge output remain on the user's machine.
 
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/HU1234top/videomind.git
-cd videomind && npm install
+git clone https://github.com/yanyu612/reelloom.git
+cd reelloom && npm install
 
 # Start Chrome with remote debugging
 chrome --remote-debugging-port=9222
@@ -548,14 +493,14 @@ Each video is analyzed as a **learnable skill unit**, not just summarized:
 
 ## 🎯 Douyin-Specific Capabilities
 
-### Bypass Download Protection
-Douyin videos have anti-download mechanisms. VideoMind **doesn't download** — it lets the web AI "watch" the video directly in the browser, exactly like a human would.
+### No local video archive
+ReelLoom operates on page-visible information in the user's authenticated browser session and does not add original video files to the knowledge base.
 
 ### Tag/Topic Extraction
-Douyin videos come with `#AI` `#Coding` `#OpenSource` topic tags. VideoMind auto-extracts these as initial classification input, then refines with AI analysis.
+Douyin videos come with topic tags such as `#AI`, `#Coding`, and `#OpenSource`. ReelLoom uses page-visible tags as initial classification input, then refines them with analysis results.
 
 ### Comment Harvesting
-Douyin comments often contain user feedback, supplementary explanations, and even author replies. VideoMind grabs the top N comments as auxiliary analysis material — one comment can be more valuable than the video title.
+When the user is authorized to process them and the page allows access, ReelLoom can use a limited number of visible comments as auxiliary analysis material. It rate-limits requests and stops on CAPTCHA.
 
 ### Speech Understanding
 Web AIs like Doubao can directly understand video speech content, no local Whisper transcription needed.
@@ -566,7 +511,7 @@ Web AIs like Doubao can directly understand video speech content, no local Whisp
 
 | Platform | Special Features | Status |
 |----------|-----------------|--------|
-| Douyin | Download bypass + Tags + Comments | ✅ MVP verified (76 videos) |
+| Douyin | Page collection + Tags + Comments | ✅ MVP verified (76 videos) |
 | Bilibili | Danmaku + Multi-part + UP info | 📋 Phase 2 |
 | YouTube | CC subtitles + Chapters + Long video | 📋 Phase 2 |
 | Xiaohongshu | Image-text notes + Tags | 🔮 Future |
@@ -591,7 +536,7 @@ Web AIs like Doubao can directly understand video speech content, no local Whisp
 
 ## 🗺️ Roadmap
 
-- **Phase 1 ✅** — Douyin collector (download bypass) + Doubao analyzer (skill-focused 10-dim) + Knowledge builder + Markdown/Lexiang sink
+- **Phase 1 ✅** — Douyin page collector + Doubao analyzer (skill-focused 10-dim) + Knowledge builder + Markdown/Lexiang sink
 - **Phase 2 📋** — Bilibili/YouTube adapters + Kimi/Gemini/Claude analyzers + Parallel mode
 - **Phase 3 📋** — Knowledge graph visualization + Notion/Obsidian connectors + Local Web UI
 - **Phase 4 🔮** — Plugin marketplace + Cloud deployment (optional)

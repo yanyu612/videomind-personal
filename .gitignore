@@ -13,6 +13,7 @@ session_info.json
 # Environment
 .env
 .env.*
+!.env.example
 
 # OS files
 .DS_Store

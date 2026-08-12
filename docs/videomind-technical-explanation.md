@@ -157,4 +157,4 @@ video_list.json → analysis.json → 结构化知识库
 
 ---
 
-*想深入了解可以直接看 GitHub 仓库：https://github.com/HU1234top/videomind*
+*想深入了解可以直接看维护仓库：https://github.com/yanyu612/reelloom；项目来源与许可见 `NOTICE.md`。*

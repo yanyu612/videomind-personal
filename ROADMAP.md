@@ -1,4 +1,4 @@
-# VideoMind Roadmap
+# ReelLoom Roadmap
 
 > **不是承诺，是路线图**。每项的实际状态以 [docs/STATUS.md](docs/STATUS.md) 为准。
 

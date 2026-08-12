@@ -108,4 +108,4 @@ export class XxxAnalyzer extends BaseAnalyzer {
 - 跑测试：`node --test src/**/*.test.mjs`
 - checkpoint 相关 15~16 个测试在沙箱环境因 `better-sqlite3` 原生模块失败，**非代码 bug**，真实环境通过。
 - 提交信息格式：`fix(round-N): ...` / `feat(...): ...`，SeniorDeveloper 修改加 `SeniorDeveloper:` 前缀注释。
-- 推送：需用户开加速器；推送后清理 remote URL 里的 token（`git remote set-url origin https://github.com/HU1234top/videomind.git`）。
+- 推送：只使用系统凭据管理器或 SSH，不把 token 写进 remote URL。维护仓库为 `https://github.com/yanyu612/reelloom.git`，上游来源见 `NOTICE.md`。
